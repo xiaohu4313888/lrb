@@ -14,6 +14,7 @@
 #include <boost/bimap/multiset_of.hpp>
 
 using namespace std;
+using namespace webcachesim;
 
 class RandomCache : public Cache
 {
@@ -31,10 +32,8 @@ public:
 
     virtual bool lookup(SimpleRequest& req);
     virtual void admit(SimpleRequest& req);
-    virtual void evict();
-    virtual void evict(SimpleRequest& req) {
-        //no need to use it
-    };
+
+    void evict();
 };
 
 static Factory<RandomCache> factoryRandom("Random");

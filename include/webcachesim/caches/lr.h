@@ -14,6 +14,7 @@
 
 
 using namespace std;
+using namespace webcachesim;
 
 namespace LR {
     uint8_t max_n_past_timestamps = 4;
@@ -115,7 +116,7 @@ public:
     {
     }
 
-    void init_with_params(map<string, string> params) override {
+    void init_with_params(const map<string, string> &params) override {
         //set params
         for (auto& it: params) {
             if (it.first == "sample_rate") {
@@ -155,8 +156,6 @@ public:
      * rank and evict from cache
      */
     void evict(const uint64_t & t);
-    void evict(SimpleRequest & req) {};
-    void evict() {};
     void forget(uint64_t & t);
     //sample, rank the 1st and return
     pair<uint64_t, uint32_t > rank(const uint64_t & t);

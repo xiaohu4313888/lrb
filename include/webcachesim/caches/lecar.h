@@ -1,70 +1,79 @@
 //
-// Created by zhenyus on 11/8/18.
+// Created by zhenyus on 2/17/19.
 //
 
-#ifndef WEBCACHESIM_BELADY_H
-#define WEBCACHESIM_BELADY_H
+#ifndef WEBCACHESIM_LECAR_H
+#define WEBCACHESIM_LECAR_H
 
 #include "cache.h"
 #include <utils.h>
 #include <unordered_map>
 #include <map>
-#include <fstream>
-#include <algorithm>
-#include <bsoncxx/builder/basic/document.hpp>
+#include <boost/bimap.hpp>
+
+#ifdef EVICTION_LOGGING
 #include "mongocxx/client.hpp"
-#include "mongocxx/uri.hpp"
-#include <mongocxx/gridfs/bucket.hpp>
+#endif
 
 using namespace std;
+using namespace boost;
+using namespace webcachesim;
 
-/*
-  Belady: Optimal for unit size
-*/
-class BeladyCache : public Cache
+class LeCaRCache : public Cache
 {
-protected:
-    // list for recency order
-    multimap<uint64_t , uint64_t, greater<uint64_t >> _valueMap;
+public:
+    // recency insert_time: key
+    bimap<uint64_t, uint64_t > recency;
+    // frequency <frequency, t>: key
+    bimap<pair<uint64_t, uint64_t> , uint64_t > frequency;
     // only store in-cache object, value is size
-    unordered_map<uint64_t, uint64_t> _cacheMap;
-    // how far an evicted object will access again
+    unordered_map<uint64_t, uint64_t> size_map;
+
+    // eviction_time: key
+    bimap<pair<uint64_t, uint64_t>, uint64_t > h_lru;
+    bimap<pair<uint64_t, uint64_t>, uint64_t > h_lfu;
+    map<uint64_t, uint64_t > h_size_map;
+    uint64_t h_lru_current_size = 0;
+    uint64_t h_lfu_current_size = 0;
+
+    double learning_rate = 0.45;
+    double discount_rate;
+    //w0: lru, w1: lfu
+    double w[2];
+
+#ifdef EVICTION_LOGGING
+    uint32_t current_t;
+    unordered_map<uint64_t, uint32_t> future_timestamps;
     vector<uint8_t> eviction_qualities;
     vector<uint16_t> eviction_logic_timestamps;
     uint64_t byte_million_req;
-    unsigned int current_t;
     string task_id;
     string dburl;
+#endif
 
-
-public:
-    BeladyCache()
-            : Cache()
-    {
-    }
-
-    void init_with_params(map<string, string> params) override {
-        for (auto &it: params) {
-            if (it.first == "byte_million_req") {
+    void init_with_params(const map<string, string> &params) override {
+        //set params
+        for (auto& it: params) {
+            if (it.first == "learning_rate") {
+                learning_rate = stod(it.second);
+#ifdef EVICTION_LOGGING
+            } else if (it.first == "byte_million_req") {
                 byte_million_req = stoull(it.second);
             } else if (it.first == "task_id") {
                 task_id = it.second;
             } else if (it.first == "dburl") {
                 dburl = it.second;
+#endif
             } else {
                 cerr << "unrecognized parameter: " << it.first << endl;
             }
         }
+        discount_rate = pow(0.005, 1./_cacheSize);
+        w[0] = w[1] = 0.5;
     }
 
-    virtual bool lookup(SimpleRequest& req);
-    virtual void admit(SimpleRequest& req);
-    virtual void evict(SimpleRequest& req) {
-        //no need to use it
-    };
-    virtual void evict();
-    bool has(const uint64_t& id) {return _cacheMap.find(id) != _cacheMap.end();}
 
+#ifdef EVICTION_LOGGING
     void update_stat(bsoncxx::v_noabi::builder::basic::document &doc) override {
         //Log to GridFs because the value is too big to store in mongodb
         try {
@@ -85,9 +94,15 @@ public:
             abort();
         }
     }
+#endif
+
+    bool lookup(SimpleRequest &req) override;
+
+    void admit(SimpleRequest &req) override;
+    void evict(uint64_t & t, uint64_t & counter);
+    bool has(const uint64_t& id) {return size_map.find(id) != size_map.end();}
 };
 
-static Factory<BeladyCache> factoryBelady("Belady");
+static Factory<LeCaRCache> factoryLeCaR("LeCaR");
 
-
-#endif //WEBCACHESIM_BELADY_H
+#endif //WEBCACHESIM_LECAR_H

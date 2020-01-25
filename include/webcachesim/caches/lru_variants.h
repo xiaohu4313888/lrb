@@ -7,16 +7,17 @@
 #include <random>
 #include "cache.h"
 #include "adaptsize_const.h" /* AdaptSize constants */
-#include <fstream>
+
+#ifdef EVICTION_LOGGING
 #include "mongocxx/client.hpp"
-#include "mongocxx/uri.hpp"
-#include <mongocxx/gridfs/bucket.hpp>
+#endif
 
 typedef std::list<uint64_t >::iterator ListIteratorType;
 typedef std::unordered_map<uint64_t , ListIteratorType> lruCacheMapType;
 
 
 using namespace std;
+using namespace webcachesim;
 /*
   LRU: Least Recently Used eviction
 */
@@ -28,62 +29,69 @@ protected:
     // map to find objects in list
     lruCacheMapType _cacheMap;
     unordered_map<uint64_t , uint64_t > _size_map;
+#ifdef EVICTION_LOGGING
     uint32_t current_t;
-//    unordered_map<uint64_t, uint32_t> future_timestamps;
-//    vector<uint8_t> eviction_qualities;
-//    vector<uint16_t> eviction_logic_timestamps;
-//    unordered_map<uint64_t, uint32_t> last_timestamps;
-//    vector<uint8_t> hits;
-//    vector<uint16_t> hit_timestamps;
-//    uint64_t byte_million_req;
-//    string task_id;
-//    string dburl;
+    unordered_map<uint64_t, uint32_t> future_timestamps;
+    vector<uint8_t> eviction_qualities;
+    vector<uint16_t> eviction_logic_timestamps;
+    unordered_map<uint64_t, uint32_t> last_timestamps;
+    vector<uint8_t> hits;
+    vector<uint16_t> hit_timestamps;
+    uint64_t byte_million_req;
+    string task_id;
+    string dburl;
+#endif
 
 
-//    void init_with_params(map<string, string> params) override {
-//        //set params
-//        for (auto &it: params) {
-//            if (it.first == "byte_million_req") {
-//                byte_million_req = stoull(it.second);
-//            } else if (it.first == "task_id") {
-//                task_id = it.second;
-//            } else if (it.first == "dburl") {
-//                dburl = it.second;
-//            } else {
-//                cerr << "unrecognized parameter: " << it.first << endl;
-//            }
-//        }
-//    }
+#ifdef EVICTION_LOGGING
+
+    void init_with_params(const map<string, string> &params) override {
+        //set params
+        for (auto &it: params) {
+            if (it.first == "byte_million_req") {
+                byte_million_req = stoull(it.second);
+            } else if (it.first == "task_id") {
+                task_id = it.second;
+            } else if (it.first == "dburl") {
+                dburl = it.second;
+            } else {
+                cerr << "unrecognized parameter: " << it.first << endl;
+            }
+        }
+    }
+#endif
 
 
-//    void update_stat(bsoncxx::builder::basic::document &doc) override {
-//        //Log to GridFs because the value is too big to store in mongodb
-//        try {
-//            mongocxx::client client = mongocxx::client{mongocxx::uri(dburl)};
-//            mongocxx::database db = client["webcachesim"];
-//            auto bucket = db.gridfs_bucket();
-//
-//            auto uploader = bucket.open_upload_stream(task_id + ".evictions");
-//            for (auto &b: eviction_qualities)
-//                uploader.write((uint8_t *) (&b), sizeof(uint8_t));
-//            uploader.close();
-//            uploader = bucket.open_upload_stream(task_id + ".eviction_timestamps");
-//            for (auto &b: eviction_logic_timestamps)
-//                uploader.write((uint8_t *) (&b), sizeof(uint16_t));
-//            uploader.close();
-//            uploader = bucket.open_upload_stream(task_id + ".hits");
-//            for (auto &b: hits)
-//                uploader.write((uint8_t *) (&b), sizeof(uint8_t));
-//            uploader.close();
-//            uploader = bucket.open_upload_stream(task_id + ".hit_timestamps");
-//            for (auto &b: hit_timestamps)
-//                uploader.write((uint8_t *) (&b), sizeof(uint16_t));
-//            uploader.close();
-//        } catch (const std::exception &xcp) {
-//            cerr << "error: db connection failed: " << xcp.what() << std::endl;
-//            abort();
-//        }
-//    }
+#ifdef EVICTION_LOGGING
+    void update_stat(bsoncxx::builder::basic::document &doc) override {
+        //Log to GridFs because the value is too big to store in mongodb
+        try {
+            mongocxx::client client = mongocxx::client{mongocxx::uri(dburl)};
+            mongocxx::database db = client["webcachesim"];
+            auto bucket = db.gridfs_bucket();
+
+            auto uploader = bucket.open_upload_stream(task_id + ".evictions");
+            for (auto &b: eviction_qualities)
+                uploader.write((uint8_t *) (&b), sizeof(uint8_t));
+            uploader.close();
+            uploader = bucket.open_upload_stream(task_id + ".eviction_timestamps");
+            for (auto &b: eviction_logic_timestamps)
+                uploader.write((uint8_t *) (&b), sizeof(uint16_t));
+            uploader.close();
+            uploader = bucket.open_upload_stream(task_id + ".hits");
+            for (auto &b: hits)
+                uploader.write((uint8_t *) (&b), sizeof(uint8_t));
+            uploader.close();
+            uploader = bucket.open_upload_stream(task_id + ".hit_timestamps");
+            for (auto &b: hit_timestamps)
+                uploader.write((uint8_t *) (&b), sizeof(uint16_t));
+            uploader.close();
+        } catch (const std::exception &xcp) {
+            cerr << "error: db connection failed: " << xcp.what() << std::endl;
+            abort();
+        }
+    }
+#endif
 
     virtual void hit(lruCacheMapType::const_iterator it, uint64_t size);
 
@@ -96,10 +104,13 @@ public:
     {
     }
 
-    virtual bool lookup(SimpleRequest& req);
-    virtual void admit(SimpleRequest& req);
-    virtual void evict(SimpleRequest& req);
-    virtual void evict();
+    bool lookup(SimpleRequest &req) override;
+
+    void admit(SimpleRequest &req) override;
+
+    void evict(SimpleRequest &req);
+
+    void evict();
     virtual const SimpleRequest & evict_return();
 };
 
@@ -120,10 +131,10 @@ public:
     {
     }
 
-    virtual bool lookup(SimpleRequest& req);
-    virtual void admit(SimpleRequest& req);
-    virtual void evict(SimpleRequest& req){};
-    virtual void evict(){};
+    bool lookup(SimpleRequest &req) override;
+
+    void admit(SimpleRequest &req) override;
+
     size_t memory_overhead() override {
         //the estimation of unordered_setq not very accurate
         size_t count = 0;
@@ -166,58 +177,24 @@ static Factory<FIFOCache> factoryFIFO("FIFO");
 ///*
 //  FilterCache (admit only after N requests)
 //*/
-//class FilterCache : public LRUCache {
+//class FilterCache : public LRUCache
+//{
 //protected:
 //    uint64_t _nParam;
-//    std::unordered_map<uint64_t, uint64_t> _filter;
+//    std::unordered_map<CacheObject, uint64_t> _filter;
 //
 //public:
 //    FilterCache();
-//
-//    virtual ~FilterCache() {
+//    virtual ~FilterCache()
+//    {
 //    }
 //
-////    virtual void setPar(std::string parName, std::string parValue);
-////    virtual bool lookup(SimpleRequest& req);
-//    virtual void admit(SimpleRequest &req);
-//
-//    void init_with_params(map<string, string> params) override {
-//        //set params
-//        for (auto &it: params) {
-//            if (it.first == "n") {
-//                _nParam = stoull(it.second);
-//            } else {
-//                cerr << "unrecognized parameter: " << it.first << endl;
-//            }
-//        }
-//        LRUCache::init_with_params(params);
-//    };
+//    virtual void setPar(std::string parName, std::string parValue);
+//    virtual bool lookup(SimpleRequest& req);
+//    virtual void admit(SimpleRequest& req);
 //};
 //
 //static Factory<FilterCache> factoryFilter("Filter");
-
-
-
-/*
-  BloomFilterCache (admit only after 1 requests), each BloomFilter holds 40 million objects,
-  as suggested by Akamai algorithm nugget paper
-*/
-//class BloomFilterCache : public LRUCache {
-//protected:
-//    unordered_set<uint64_t> _filter[2];
-//    uint8_t current_filter = 0;
-//    static const size_t max_n_element = 40000000;
-//
-//public:
-//    BloomFilterCache() {
-//        for (int i = 0; i < 2; ++i)
-//            _filter[i].reserve(max_n_element);
-//        LRUCache();
-//    }
-//    virtual void admit(SimpleRequest &req);
-//};
-//
-//static Factory<BloomFilterCache> factoryBloomFilter("BloomFilter");
 
 /*
   AdaptSize: ExpLRU with automatic adaption of the _cParam
@@ -279,23 +256,27 @@ protected:
 
 public:
     S4LRUCache()
-            : Cache()
-    {
+            : Cache() {
         segments[0] = LRUCache();
         segments[1] = LRUCache();
         segments[2] = LRUCache();
         segments[3] = LRUCache();
     }
-    virtual ~S4LRUCache()
-    {
+
+    virtual ~S4LRUCache() {
     }
 
-    virtual void setSize(uint64_t cs);
-    virtual bool lookup(SimpleRequest& req);
-    virtual void admit(SimpleRequest& req);
-    virtual void segment_admit(uint8_t idx, SimpleRequest& req);
-    virtual void evict(SimpleRequest& req);
-    virtual void evict();
+    void setSize(const uint64_t &cs) override;
+
+    bool lookup(SimpleRequest &req) override;
+
+    void admit(SimpleRequest &req) override;
+
+    void segment_admit(uint8_t idx, SimpleRequest &req);
+
+    void evict(SimpleRequest &req);
+
+    void evict();
 };
 
 static Factory<S4LRUCache> factoryS4LRU("S4LRU");
@@ -307,7 +288,7 @@ protected:
     uint64_t _sizeThreshold;
 
 public:
-    void init_with_params(map<string, string> params) override {
+    void init_with_params(const map<string, string> &params) override {
         //set params
         for (auto& it: params) {
             if (it.first == "t") {
@@ -340,7 +321,8 @@ public:
     virtual ~ThLRUCache()
     {
     }
-    void init_with_params(map<string, string> params) override {
+
+    void init_with_params(const map<string, string> &params) override {
         //set params
         for (auto& it: params) {
             if (it.first == "t") {

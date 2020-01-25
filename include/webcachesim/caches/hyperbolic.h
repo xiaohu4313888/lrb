@@ -10,6 +10,7 @@
 #include <random>
 
 using namespace std;
+using namespace webcachesim;
 
 class HyperbolicMeta {
 public:
@@ -42,7 +43,7 @@ public:
     default_random_engine _generator = default_random_engine();
     uniform_int_distribution<std::size_t> _distribution = uniform_int_distribution<std::size_t>();
 
-    void init_with_params(map<string, string> params) override {
+    void init_with_params(const map<string, string> &params) override {
         //set params
         for (auto& it: params) {
             if (it.first == "sample_rate") {
@@ -53,11 +54,11 @@ public:
         }
     }
 
-    virtual bool lookup(SimpleRequest& req);
-    virtual void admit(SimpleRequest& req);
-    virtual void evict(const uint64_t & t);
-    void evict(SimpleRequest & req) {};
-    void evict() {};
+    bool lookup(SimpleRequest &req) override;
+
+    void admit(SimpleRequest &req) override;
+
+    void evict(const uint64_t &t);
     //sample, rank the 1st and return
     pair<uint64_t, uint32_t > rank(const uint64_t & t);
 };

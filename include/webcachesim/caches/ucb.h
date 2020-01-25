@@ -15,6 +15,7 @@
 typedef uint64_t KeyT;
 
 using namespace std;
+using namespace webcachesim;
 
 class UCBCache : public Cache
 {
@@ -35,8 +36,8 @@ public:
 
     virtual bool lookup(SimpleRequest& req);
     virtual void admit(SimpleRequest& req);
-    virtual void evict();
-    virtual void evict(SimpleRequest& req) {};
+
+    void evict();
 };
 
 static Factory<UCBCache> factoryUCB("UCB");

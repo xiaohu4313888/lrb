@@ -27,12 +27,27 @@ FrameWork::FrameWork(const string &trace_file, const string &cache_type, const u
     _cache_type = cache_type;
     _cache_size = cache_size;
     is_offline = offline_algorithms.count(_cache_type);
-
 #ifdef EVICTION_LOGGING
     //logging eviction requires next_seq information
     is_offline = true;
 #endif
 
+    //trace_file related init
+    _trace_file = trace_file;
+    check_n_extra_field();
+    params["n_extra_fields"] = to_string(n_extra_fields);
+    if (is_offline) {
+        annotate(_trace_file, n_extra_fields);
+    }
+
+    if (is_offline) {
+        _trace_file = _trace_file + ".ant";
+    }
+    infile.open(_trace_file);
+    if (!infile) {
+        cerr << "Exception opening/reading file " << _trace_file << endl;
+        exit(-1);
+    }
 
     // create cache
     webcache = move(Cache::create_unique(cache_type));
@@ -75,21 +90,6 @@ FrameWork::FrameWork(const string &trace_file, const string &cache_type, const u
     }
     webcache->init_with_params(params);
 
-    //trace_file related init
-    _trace_file = trace_file;
-    check_n_extra_field();
-    if (is_offline) {
-        annotate(trace_file, n_extra_fields);
-    }
-
-    if (is_offline) {
-        _trace_file = _trace_file + ".ant";
-    }
-    infile.open(trace_file);
-    if (!infile) {
-        cerr << "Exception opening/reading file " << trace_file << endl;
-        exit(-1);
-    }
     adjust_real_time_offset();
     extra_features = vector<uint16_t>(n_extra_fields);
 }

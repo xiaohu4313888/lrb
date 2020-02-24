@@ -6,8 +6,6 @@ Simulate a variety of existing caching policies by replaying request traces, and
 
 The webcachesim2 simulator was built to evaluate the Learning relaxed Belady algorithm (LRB), a new machine-learning-based caching algorithm. The simulator build on top of [webcachesim](https://github.com/dasebe/webcachesim), see [References](#references) for more information.
 
-
-
 Currently supported caching algorithms:
 * Learning Relaxed Belady (LRB)
 * LR (linear-regression based ML caching)
@@ -35,6 +33,8 @@ Currently supported caching algorithms:
 * Random (random eviction)
 
 Almost configuration parameters of these algorithms can be tuned in a single config file [config/algorithm_params.yaml](config/algorithm_params.yaml)
+
+The prototype implementation on top of Apache Traffic Server is available [here](https://github.com/sunnyszy/lrb-prototype).
 
 ## Trace
 The Wikipedia trace [download link](http://lrb.cs.princeton.edu/wiki2018.tr.tar.gz). To uncomress:

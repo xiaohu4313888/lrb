@@ -79,6 +79,17 @@ where
  - cacheType: one of the caching policies
  - cacheSize: the cache capacity in bytes
  - param, value: optional cache parameter and value, can be used to tune cache policies
+ 
+ Global parameters
+
+
+| parameter |  type | description |
+| ---- | --- | --- |
+| bloom_filter | 0/1  | use bloom filter as admission control in front of cache algorithm |
+| dburl, dbcollection  | string | upload simulation results to mongodb |
+| is_metadata_in_cache_size  | 0/1 |  deducted metadata overhead from cache size  |
+| n_early_stop  | int | stop simulation after n requests, <0 means no early stop |
+ 
 
 ### Examples
 

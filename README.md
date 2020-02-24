@@ -167,5 +167,15 @@ We ask academic works, which built on this code, to reference the LRB/AdaptSize 
     USENIX NSDI 2017.
 
 ## License
-TODO: third-part licenses
+
+We include 3rd party library source code in [lib](lib) folder for better code isolation, and they may have different licenses:
+
+* [libbf](https://github.com/mavam/libbf):  BSD-3-Clause
+* [LightGBM](https://github.com/microsoft/LightGBM): MIT
+* [Mongodb c driver](https://github.com/mongodb/mongo-c-driver): Apache-2.0
+* [Mongodb cxx driver](https://github.com/mongodb/mongo-cxx-driver): Apache-2.0
+* [sparsepp](https://github.com/greg7mdp/sparsepp): BSD-3-Clause
+* [tinylfu](https://github.com/ben-manes/caffeine): Apache-2.0
+  
+
     

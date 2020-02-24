@@ -32,7 +32,7 @@ public:
     //unit: second
     uint64_t real_time_segment_window = 600;
     uint n_extra_fields = 0;
-    bool is_metadata_in_cache_size = false;
+    bool is_metadata_in_cache_size = true;
     unique_ptr<Cache> webcache = nullptr;
     std::ifstream infile;
     int64_t n_early_stop = -1;  //-1: no stop

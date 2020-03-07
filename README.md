@@ -32,7 +32,7 @@ Currently supported caching algorithms:
 * LFO
 * Random (random eviction)
 
-Almost configuration parameters of these algorithms can be tuned in a single config file [config/algorithm_params.yaml](config/algorithm_params.yaml)
+Configuration parameters of these algorithms can be found in the config file [config/algorithm_params.yaml](config/algorithm_params.yaml)
 
 The prototype implementation on top of Apache Traffic Server is available [here](https://github.com/sunnyszy/lrb-prototype).
 

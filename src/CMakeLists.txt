@@ -1,6 +1,8 @@
 message(${WEBCACHESIM_HEADER_DIR})
 
 set(LIB_SOURCE
+        ${WEBCACHESIM_HEADER_DIR}/utils.h
+        ${WEBCACHESIM_HEADER_DIR}/file_hash.h
         ${WEBCACHESIM_HEADER_DIR}/cache.h
         ${WEBCACHESIM_HEADER_DIR}/parallel_cache.h
         ${WEBCACHESIM_HEADER_DIR}/simulation.h

@@ -7,6 +7,7 @@
 
 #include "cache.h"
 #include <unordered_map>
+#include <unordered_set>
 #include "sparsepp/spp.h"
 #include <vector>
 #include <random>
@@ -23,11 +24,12 @@
 using namespace webcachesim;
 using namespace std;
 using spp::sparse_hash_map;
-typedef uint64_t LRBKey;
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::sub_array;
 
-namespace LRB {
+namespace lrb {
+    typedef uint64_t KeyT;
+
     uint32_t current_t = -1;
     uint8_t max_n_past_timestamps = 32;
     uint8_t max_n_past_distances = 31;
@@ -49,49 +51,51 @@ namespace LRB {
     bool start_train_logging = false;
     int range_log = 1000000;
 #endif
-}
 
-struct LRBMetaExtra {
-    //164 byte at most
+struct MetaExtra {
+    //vector overhead = 24 (8 pointer, 8 size, 8 allocation)
+    //40 + 24 + 4*x + 1
+    //65 byte at least
+    //189 byte at most
     //not 1 hit wonder
     float _edc[10];
     vector<uint32_t> _past_distances;
     //the next index to put the distance
     uint8_t _past_distance_idx = 1;
 
-    LRBMetaExtra(const uint32_t &distance) {
+    MetaExtra(const uint32_t &distance) {
         _past_distances = vector<uint32_t>(1, distance);
-        for (uint8_t i = 0; i < LRB::n_edc_feature; ++i) {
-            uint32_t _distance_idx = min(uint32_t(distance / LRB::edc_windows[i]), LRB::max_hash_edc_idx);
-            _edc[i] = LRB::hash_edc[_distance_idx] + 1;
+        for (uint8_t i = 0; i < n_edc_feature; ++i) {
+            uint32_t _distance_idx = min(uint32_t(distance / edc_windows[i]), max_hash_edc_idx);
+            _edc[i] = hash_edc[_distance_idx] + 1;
         }
     }
 
     void update(const uint32_t &distance) {
-        uint8_t distance_idx = _past_distance_idx % LRB::max_n_past_distances;
-        if (_past_distances.size() < LRB::max_n_past_distances)
+        uint8_t distance_idx = _past_distance_idx % max_n_past_distances;
+        if (_past_distances.size() < max_n_past_distances)
             _past_distances.emplace_back(distance);
         else
             _past_distances[distance_idx] = distance;
-        assert(_past_distances.size() <= LRB::max_n_past_distances);
+        assert(_past_distances.size() <= max_n_past_distances);
         _past_distance_idx = _past_distance_idx + (uint8_t) 1;
-        if (_past_distance_idx >= LRB::max_n_past_distances * 2)
-            _past_distance_idx -= LRB::max_n_past_distances;
-        for (uint8_t i = 0; i < LRB::n_edc_feature; ++i) {
-            uint32_t _distance_idx = min(uint32_t(distance / LRB::edc_windows[i]), LRB::max_hash_edc_idx);
-            _edc[i] = _edc[i] * LRB::hash_edc[_distance_idx] + 1;
+        if (_past_distance_idx >= max_n_past_distances * 2)
+            _past_distance_idx -= max_n_past_distances;
+        for (uint8_t i = 0; i < n_edc_feature; ++i) {
+            uint32_t _distance_idx = min(uint32_t(distance / edc_windows[i]), max_hash_edc_idx);
+            _edc[i] = _edc[i] * hash_edc[_distance_idx] + 1;
         }
     }
 };
 
-class LRBMeta {
+class Meta {
 public:
     //25 byte
     uint64_t _key;
     uint32_t _size;
     uint32_t _past_timestamp;
-    uint16_t _extra_features[LRB::max_n_extra_feature];
-    LRBMetaExtra *_extra = nullptr;
+    uint16_t _extra_features[max_n_extra_feature];
+    MetaExtra *_extra = nullptr;
     vector<uint32_t> _sample_times;
 #ifdef EVICTION_LOGGING
     vector<uint32_t> _eviction_sample_times;
@@ -100,28 +104,28 @@ public:
 
 
 #ifdef EVICTION_LOGGING
-    LRBMeta(const uint64_t &key, const uint64_t &size, const uint64_t &past_timestamp,
+    Meta(const uint64_t &key, const uint64_t &size, const uint64_t &past_timestamp,
             const vector<uint16_t> &extra_features, const uint64_t &future_timestamp) {
         _key = key;
         _size = size;
         _past_timestamp = past_timestamp;
-        for (int i = 0; i < LRB::n_extra_fields; ++i)
+        for (int i = 0; i < n_extra_fields; ++i)
             _extra_features[i] = extra_features[i];
         _future_timestamp = future_timestamp;
     }
 
 #else
-    LRBMeta(const uint64_t &key, const uint64_t &size, const uint64_t &past_timestamp,
+    Meta(const uint64_t &key, const uint64_t &size, const uint64_t &past_timestamp,
             const vector<uint16_t> &extra_features) {
         _key = key;
         _size = size;
         _past_timestamp = past_timestamp;
-        for (int i = 0; i < LRB::n_extra_fields; ++i)
+        for (int i = 0; i < n_extra_fields; ++i)
             _extra_features[i] = extra_features[i];
     }
 #endif
 
-    virtual ~LRBMeta() = default;
+    virtual ~Meta() = default;
 
     void emplace_sample(uint32_t &sample_t) {
         _sample_times.emplace_back(sample_t);
@@ -144,7 +148,7 @@ public:
         uint32_t _distance = past_timestamp - _past_timestamp;
         assert(_distance);
         if (!_extra) {
-            _extra = new LRBMetaExtra(_distance);
+            _extra = new MetaExtra(_distance);
         } else
             _extra->update(_distance);
         //timestamp
@@ -158,7 +162,7 @@ public:
         uint32_t _distance = past_timestamp - _past_timestamp;
         assert(_distance);
         if (!_extra) {
-            _extra = new LRBMetaExtra(_distance);
+            _extra = new MetaExtra(_distance);
         } else
             _extra->update(_distance);
         //timestamp
@@ -167,9 +171,9 @@ public:
 #endif
 
     int feature_overhead() {
-        int ret = sizeof(LRBMeta);
+        int ret = sizeof(Meta);
         if (_extra)
-            ret += sizeof(LRBMetaExtra) - sizeof(_sample_times) + _extra->_past_distances.capacity() * sizeof(uint32_t);
+            ret += sizeof(MetaExtra) - sizeof(_sample_times) + _extra->_past_distances.capacity() * sizeof(uint32_t);
         return ret;
     }
 
@@ -179,10 +183,10 @@ public:
 };
 
 
-class InCacheMeta : public LRBMeta {
+class InCacheMeta : public Meta {
 public:
     //pointer to lru0
-    list<LRBKey>::const_iterator p_last_request;
+    list<KeyT>::const_iterator p_last_request;
     //any change to functions?
 
 #ifdef EVICTION_LOGGING
@@ -193,20 +197,20 @@ public:
                 const vector<uint16_t> &extra_features,
                 const uint64_t &future_timestamp,
                 const list<LRBKey>::const_iterator &it) :
-            LRBMeta(key, size, past_timestamp, extra_features, future_timestamp) {
+            Meta(key, size, past_timestamp, extra_features, future_timestamp) {
         p_last_request = it;
     };
 #else
     InCacheMeta(const uint64_t &key,
                 const uint64_t &size,
                 const uint64_t &past_timestamp,
-                const vector<uint16_t> &extra_features, const list<LRBKey>::const_iterator &it) :
-            LRBMeta(key, size, past_timestamp, extra_features) {
+                const vector<uint16_t> &extra_features, const list<KeyT>::const_iterator &it) :
+            Meta(key, size, past_timestamp, extra_features) {
         p_last_request = it;
     };
 #endif
 
-    InCacheMeta(const LRBMeta &meta, const list<LRBKey>::const_iterator &it) : LRBMeta(meta) {
+    InCacheMeta(const Meta &meta, const list<KeyT>::const_iterator &it) : Meta(meta) {
         p_last_request = it;
     };
 
@@ -214,16 +218,16 @@ public:
 
 class InCacheLRUQueue {
 public:
-    list<LRBKey> dq;
+    list<KeyT> dq;
 
     //size?
     //the hashtable (location information is maintained outside, and assume it is always correct)
-    list<LRBKey>::const_iterator request(LRBKey key) {
+    list<KeyT>::const_iterator request(KeyT key) {
         dq.emplace_front(key);
         return dq.cbegin();
     }
 
-    list<LRBKey>::const_iterator re_request(list<LRBKey>::const_iterator it) {
+    list<KeyT>::const_iterator re_request(list<KeyT>::const_iterator it) {
         if (it != dq.cbegin()) {
             dq.emplace_front(*it);
             dq.erase(it);
@@ -232,22 +236,22 @@ public:
     }
 };
 
-class LRBTrainingData {
+class TrainingData {
 public:
     vector<float> labels;
     vector<int32_t> indptr;
     vector<int32_t> indices;
     vector<double> data;
 
-    LRBTrainingData() {
-        labels.reserve(LRB::batch_size);
-        indptr.reserve(LRB::batch_size + 1);
+    TrainingData() {
+        labels.reserve(batch_size);
+        indptr.reserve(batch_size + 1);
         indptr.emplace_back(0);
-        indices.reserve(LRB::batch_size * LRB::n_feature);
-        data.reserve(LRB::batch_size * LRB::n_feature);
+        indices.reserve(batch_size * n_feature);
+        data.reserve(batch_size * n_feature);
     }
 
-    void emplace_back(LRBMeta &meta, uint32_t &sample_timestamp, uint32_t &future_interval, const uint64_t &key) {
+    void emplace_back(Meta &meta, uint32_t &sample_timestamp, uint32_t &future_interval, const uint64_t &key) {
         int32_t counter = indptr.back();
 
         indices.emplace_back(0);
@@ -258,13 +262,13 @@ public:
         int j = 0;
         uint8_t n_within = 0;
         if (meta._extra) {
-            for (; j < meta._extra->_past_distance_idx && j < LRB::max_n_past_distances; ++j) {
-                uint8_t past_distance_idx = (meta._extra->_past_distance_idx - 1 - j) % LRB::max_n_past_distances;
+            for (; j < meta._extra->_past_distance_idx && j < max_n_past_distances; ++j) {
+                uint8_t past_distance_idx = (meta._extra->_past_distance_idx - 1 - j) % max_n_past_distances;
                 const uint32_t &past_distance = meta._extra->_past_distances[past_distance_idx];
                 this_past_distance += past_distance;
                 indices.emplace_back(j + 1);
                 data.emplace_back(past_distance);
-                if (this_past_distance < LRB::memory_window) {
+                if (this_past_distance < memory_window) {
                     ++n_within;
                 }
             }
@@ -272,66 +276,66 @@ public:
 
         counter += j;
 
-        indices.emplace_back(LRB::max_n_past_timestamps);
+        indices.emplace_back(max_n_past_timestamps);
         data.push_back(meta._size);
         ++counter;
 
-        for (int k = 0; k < LRB::n_extra_fields; ++k) {
-            indices.push_back(LRB::max_n_past_timestamps + k + 1);
+        for (int k = 0; k < n_extra_fields; ++k) {
+            indices.push_back(max_n_past_timestamps + k + 1);
             data.push_back(meta._extra_features[k]);
         }
-        counter += LRB::n_extra_fields;
+        counter += n_extra_fields;
 
-        indices.push_back(LRB::max_n_past_timestamps + LRB::n_extra_fields + 1);
+        indices.push_back(max_n_past_timestamps + n_extra_fields + 1);
         data.push_back(n_within);
         ++counter;
 
         if (meta._extra) {
-            for (int k = 0; k < LRB::n_edc_feature; ++k) {
-                indices.push_back(LRB::max_n_past_timestamps + LRB::n_extra_fields + 2 + k);
+            for (int k = 0; k < n_edc_feature; ++k) {
+                indices.push_back(max_n_past_timestamps + n_extra_fields + 2 + k);
                 uint32_t _distance_idx = std::min(
-                        uint32_t(sample_timestamp - meta._past_timestamp) / LRB::edc_windows[k],
-                        LRB::max_hash_edc_idx);
-                data.push_back(meta._extra->_edc[k] * LRB::hash_edc[_distance_idx]);
+                        uint32_t(sample_timestamp - meta._past_timestamp) / edc_windows[k],
+                        max_hash_edc_idx);
+                data.push_back(meta._extra->_edc[k] * hash_edc[_distance_idx]);
             }
         } else {
-            for (int k = 0; k < LRB::n_edc_feature; ++k) {
-                indices.push_back(LRB::max_n_past_timestamps + LRB::n_extra_fields + 2 + k);
+            for (int k = 0; k < n_edc_feature; ++k) {
+                indices.push_back(max_n_past_timestamps + n_extra_fields + 2 + k);
                 uint32_t _distance_idx = std::min(
-                        uint32_t(sample_timestamp - meta._past_timestamp) / LRB::edc_windows[k],
-                        LRB::max_hash_edc_idx);
-                data.push_back(LRB::hash_edc[_distance_idx]);
+                        uint32_t(sample_timestamp - meta._past_timestamp) / edc_windows[k],
+                        max_hash_edc_idx);
+                data.push_back(hash_edc[_distance_idx]);
             }
         }
 
-        counter += LRB::n_edc_feature;
+        counter += n_edc_feature;
 
         labels.push_back(log1p(future_interval));
         indptr.push_back(counter);
 
 
 #ifdef EVICTION_LOGGING
-        if ((LRB::current_t >= LRB::n_logging_start) && !LRB::start_train_logging && (indptr.size() == 2)) {
-            LRB::start_train_logging = true;
+        if ((current_t >= n_logging_start) && !start_train_logging && (indptr.size() == 2)) {
+            start_train_logging = true;
         }
 
-        if (LRB::start_train_logging) {
+        if (start_train_logging) {
 //            training_and_prediction_logic_timestamps.emplace_back(current_t / 65536);
             int i = indptr.size() - 2;
             int current_idx = indptr[i];
-            for (int p = 0; p < LRB::n_feature; ++p) {
+            for (int p = 0; p < n_feature; ++p) {
                 if (p == indices[current_idx]) {
-                    LRB::trainings_and_predictions.emplace_back(data[current_idx]);
+                    trainings_and_predictions.emplace_back(data[current_idx]);
                     if (current_idx + 1 < indptr[i + 1])
                         ++current_idx;
                 } else
-                    LRB::trainings_and_predictions.emplace_back(NAN);
+                    trainings_and_predictions.emplace_back(NAN);
             }
-            LRB::trainings_and_predictions.emplace_back(future_interval);
-            LRB::trainings_and_predictions.emplace_back(NAN);
-            LRB::trainings_and_predictions.emplace_back(sample_timestamp);
-            LRB::trainings_and_predictions.emplace_back(0);
-            LRB::trainings_and_predictions.emplace_back(key);
+            trainings_and_predictions.emplace_back(future_interval);
+            trainings_and_predictions.emplace_back(NAN);
+            trainings_and_predictions.emplace_back(sample_timestamp);
+            trainings_and_predictions.emplace_back(0);
+            trainings_and_predictions.emplace_back(key);
         }
 #endif
 
@@ -354,14 +358,14 @@ public:
     vector<double> data;
 
     LRBEvictionTrainingData() {
-        labels.reserve(LRB::batch_size);
-        indptr.reserve(LRB::batch_size + 1);
+        labels.reserve(batch_size);
+        indptr.reserve(batch_size + 1);
         indptr.emplace_back(0);
-        indices.reserve(LRB::batch_size * LRB::n_feature);
-        data.reserve(LRB::batch_size * LRB::n_feature);
+        indices.reserve(batch_size * n_feature);
+        data.reserve(batch_size * n_feature);
     }
 
-    void emplace_back(LRBMeta &meta, uint32_t &sample_timestamp, uint32_t &future_interval, const uint64_t &key) {
+    void emplace_back(Meta &meta, uint32_t &sample_timestamp, uint32_t &future_interval, const uint64_t &key) {
         int32_t counter = indptr.back();
 
         indices.emplace_back(0);
@@ -372,13 +376,13 @@ public:
         int j = 0;
         uint8_t n_within = 0;
         if (meta._extra) {
-            for (; j < meta._extra->_past_distance_idx && j < LRB::max_n_past_distances; ++j) {
-                uint8_t past_distance_idx = (meta._extra->_past_distance_idx - 1 - j) % LRB::max_n_past_distances;
+            for (; j < meta._extra->_past_distance_idx && j < max_n_past_distances; ++j) {
+                uint8_t past_distance_idx = (meta._extra->_past_distance_idx - 1 - j) % max_n_past_distances;
                 const uint32_t &past_distance = meta._extra->_past_distances[past_distance_idx];
                 this_past_distance += past_distance;
                 indices.emplace_back(j + 1);
                 data.emplace_back(past_distance);
-                if (this_past_distance < LRB::memory_window) {
+                if (this_past_distance < memory_window) {
                     ++n_within;
                 }
             }
@@ -386,61 +390,61 @@ public:
 
         counter += j;
 
-        indices.emplace_back(LRB::max_n_past_timestamps);
+        indices.emplace_back(max_n_past_timestamps);
         data.push_back(meta._size);
         ++counter;
 
-        for (int k = 0; k < LRB::n_extra_fields; ++k) {
-            indices.push_back(LRB::max_n_past_timestamps + k + 1);
+        for (int k = 0; k < n_extra_fields; ++k) {
+            indices.push_back(max_n_past_timestamps + k + 1);
             data.push_back(meta._extra_features[k]);
         }
-        counter += LRB::n_extra_fields;
+        counter += n_extra_fields;
 
-        indices.push_back(LRB::max_n_past_timestamps + LRB::n_extra_fields + 1);
+        indices.push_back(max_n_past_timestamps + n_extra_fields + 1);
         data.push_back(n_within);
         ++counter;
 
         if (meta._extra) {
-            for (int k = 0; k < LRB::n_edc_feature; ++k) {
-                indices.push_back(LRB::max_n_past_timestamps + LRB::n_extra_fields + 2 + k);
+            for (int k = 0; k < n_edc_feature; ++k) {
+                indices.push_back(max_n_past_timestamps + n_extra_fields + 2 + k);
                 uint32_t _distance_idx = std::min(
-                        uint32_t(sample_timestamp - meta._past_timestamp) / LRB::edc_windows[k],
-                        LRB::max_hash_edc_idx);
-                data.push_back(meta._extra->_edc[k] * LRB::hash_edc[_distance_idx]);
+                        uint32_t(sample_timestamp - meta._past_timestamp) / edc_windows[k],
+                        max_hash_edc_idx);
+                data.push_back(meta._extra->_edc[k] * hash_edc[_distance_idx]);
             }
         } else {
-            for (int k = 0; k < LRB::n_edc_feature; ++k) {
-                indices.push_back(LRB::max_n_past_timestamps + LRB::n_extra_fields + 2 + k);
+            for (int k = 0; k < n_edc_feature; ++k) {
+                indices.push_back(max_n_past_timestamps + n_extra_fields + 2 + k);
                 uint32_t _distance_idx = std::min(
-                        uint32_t(sample_timestamp - meta._past_timestamp) / LRB::edc_windows[k],
-                        LRB::max_hash_edc_idx);
-                data.push_back(LRB::hash_edc[_distance_idx]);
+                        uint32_t(sample_timestamp - meta._past_timestamp) / edc_windows[k],
+                        max_hash_edc_idx);
+                data.push_back(hash_edc[_distance_idx]);
             }
         }
 
-        counter += LRB::n_edc_feature;
+        counter += n_edc_feature;
 
         labels.push_back(log1p(future_interval));
         indptr.push_back(counter);
 
 
-        if (LRB::start_train_logging) {
+        if (start_train_logging) {
 //            training_and_prediction_logic_timestamps.emplace_back(current_t / 65536);
             int i = indptr.size() - 2;
             int current_idx = indptr[i];
-            for (int p = 0; p < LRB::n_feature; ++p) {
+            for (int p = 0; p < n_feature; ++p) {
                 if (p == indices[current_idx]) {
-                    LRB::trainings_and_predictions.emplace_back(data[current_idx]);
+                    trainings_and_predictions.emplace_back(data[current_idx]);
                     if (current_idx + 1 < indptr[i + 1])
                         ++current_idx;
                 } else
-                    LRB::trainings_and_predictions.emplace_back(NAN);
+                    trainings_and_predictions.emplace_back(NAN);
             }
-            LRB::trainings_and_predictions.emplace_back(future_interval);
-            LRB::trainings_and_predictions.emplace_back(NAN);
-            LRB::trainings_and_predictions.emplace_back(sample_timestamp);
-            LRB::trainings_and_predictions.emplace_back(2);
-            LRB::trainings_and_predictions.emplace_back(key);
+            trainings_and_predictions.emplace_back(future_interval);
+            trainings_and_predictions.emplace_back(NAN);
+            trainings_and_predictions.emplace_back(sample_timestamp);
+            trainings_and_predictions.emplace_back(2);
+            trainings_and_predictions.emplace_back(key);
         }
 
     }
@@ -464,24 +468,22 @@ class LRBCache : public Cache {
 public:
     //key -> (0/1 list, idx)
     sparse_hash_map<uint64_t, KeyMapEntryT> key_map;
-//    vector<LRBMeta> meta_holder[2];
+//    vector<Meta> meta_holder[2];
     vector<InCacheMeta> in_cache_metas;
-    vector<LRBMeta> out_cache_metas;
+    vector<Meta> out_cache_metas;
 
     InCacheLRUQueue in_cache_lru_queue;
-    //TODO: negative queue should have a better abstraction, at least hide the round-up
-    sparse_hash_map<uint64_t, uint64_t> negative_candidate_queue;
-    LRBTrainingData *training_data;
+    shared_ptr<sparse_hash_map<uint64_t, uint64_t>> negative_candidate_queue;
+    TrainingData *training_data;
 #ifdef EVICTION_LOGGING
     LRBEvictionTrainingData *eviction_training_data;
 #endif
 
-    // sample_size
+    // sample_size: use n_memorize keys + random choose (sample_rate - n_memorize) keys
     uint sample_rate = 64;
-    unsigned int segment_window = 1000000;
 
     double training_loss = 0;
-    uint64_t n_force_eviction = 0;
+    int32_t n_force_eviction = 0;
 
     double training_time = 0;
     double inference_time = 0;
@@ -512,15 +514,25 @@ public:
     default_random_engine _generator = default_random_engine();
     uniform_int_distribution<std::size_t> _distribution = uniform_int_distribution<std::size_t>();
 
+    vector<int> segment_n_in;
+    vector<int> segment_n_out;
+    uint32_t obj_distribution[2];
+    uint32_t training_data_distribution[2];  //1: pos, 0: neg
+    vector<float> segment_positive_example_ratio;
+    vector<double> segment_percent_beyond;
+    int n_retrain = 0;
+    vector<int> segment_n_retrain;
+    bool is_sampling = false;
+
+    uint64_t byte_million_req;
 #ifdef EVICTION_LOGGING
     vector<uint8_t> eviction_qualities;
     vector<uint16_t> eviction_logic_timestamps;
-    uint64_t byte_million_req;
     uint32_t n_req;
     int64_t n_early_stop = -1;
 //    vector<uint16_t> training_and_prediction_logic_timestamps;
     string task_id;
-    string dburl;
+    string dburi;
     uint64_t belady_boundary;
     vector<int64_t> near_bytes;
     vector<int64_t> middle_bytes;
@@ -533,13 +545,13 @@ public:
             if (it.first == "sample_rate") {
                 sample_rate = stoul(it.second);
             } else if (it.first == "memory_window") {
-                LRB::memory_window = stoull(it.second);
+                memory_window = stoull(it.second);
             } else if (it.first == "max_n_past_timestamps") {
-                LRB::max_n_past_timestamps = (uint8_t) stoi(it.second);
+                max_n_past_timestamps = (uint8_t) stoi(it.second);
             } else if (it.first == "batch_size") {
-                LRB::batch_size = stoull(it.second);
+                batch_size = stoull(it.second);
             } else if (it.first == "n_extra_fields") {
-                LRB::n_extra_fields = stoull(it.second);
+                n_extra_fields = stoull(it.second);
             } else if (it.first == "num_iterations") {
                 training_params["num_iterations"] = it.second;
             } else if (it.first == "learning_rate") {
@@ -548,28 +560,28 @@ public:
                 training_params["num_threads"] = it.second;
             } else if (it.first == "num_leaves") {
                 training_params["num_leaves"] = it.second;
-#ifdef EVICTION_LOGGING
-            } else if (it.first == "n_early_stop") {
-                n_early_stop = stoll((it.second));
-            } else if (it.first == "n_req") {
-                n_req = stoull(it.second);
             } else if (it.first == "byte_million_req") {
                 byte_million_req = stoull(it.second);
-            } else if (it.first == "dburl") {
-                dburl = it.second;
-            } else if (it.first == "task_id") {
-                task_id = it.second;
-            } else if (it.first == "belady_boundary") {
-                belady_boundary = stoll(it.second);
-            } else if (it.first == "range_log") {
-                LRB::range_log = stoi(it.second);
+#ifdef EVICTION_LOGGING
+                } else if (it.first == "n_early_stop") {
+                    n_early_stop = stoll((it.second));
+                } else if (it.first == "n_req") {
+                    n_req = stoull(it.second);
+                } else if (it.first == "dburi") {
+                    dburi = it.second;
+                } else if (it.first == "task_id") {
+                    task_id = it.second;
+                } else if (it.first == "belady_boundary") {
+                    belady_boundary = stoll(it.second);
+                } else if (it.first == "range_log") {
+                    range_log = stoi(it.second);
 #endif
             } else if (it.first == "n_edc_feature") {
-                if (stoull(it.second) != LRB::n_edc_feature) {
+                if (stoull(it.second) != n_edc_feature) {
                     cerr << "error: cannot change n_edc_feature because of const" << endl;
                     abort();
                 }
-//                LRB::n_edc_feature = stoull(it.second);
+//                n_edc_feature = stoull(it.second);
             } else if (it.first == "objective") {
                 if (it.second == "byte_miss_ratio")
                     objective = byte_miss_ratio;
@@ -579,43 +591,38 @@ public:
                     cerr << "error: unknown objective" << endl;
                     exit(-1);
                 }
-            } else if (it.first == "segment_window") {
-                segment_window = stoul(it.second);
             } else {
                 cerr << "LRB unrecognized parameter: " << it.first << endl;
             }
         }
 
-        negative_candidate_queue.reserve(LRB::memory_window);
-        LRB::max_n_past_distances = LRB::max_n_past_timestamps - 1;
+        negative_candidate_queue = make_shared<sparse_hash_map<uint64_t, uint64_t>>(memory_window);
+        max_n_past_distances = max_n_past_timestamps - 1;
         //init
-        LRB::edc_windows = vector<uint32_t>(LRB::n_edc_feature);
-        for (uint8_t i = 0; i < LRB::n_edc_feature; ++i) {
-            LRB::edc_windows[i] = pow(2, LRB::base_edc_window + i);
+        edc_windows = vector<uint32_t>(n_edc_feature);
+        for (uint8_t i = 0; i < n_edc_feature; ++i) {
+            edc_windows[i] = pow(2, base_edc_window + i);
         }
-        LRB::max_hash_edc_idx = (uint64_t) (LRB::memory_window / pow(2, LRB::base_edc_window)) - 1;
-        LRB::hash_edc = vector<double>(LRB::max_hash_edc_idx + 1);
-        for (int i = 0; i < LRB::hash_edc.size(); ++i)
-            LRB::hash_edc[i] = pow(0.5, i);
+        set_hash_edc();
 
         //interval, distances, size, extra_features, n_past_intervals, edwt
-        LRB::n_feature = LRB::max_n_past_timestamps + LRB::n_extra_fields + 2 + LRB::n_edc_feature;
-        if (LRB::n_extra_fields) {
-            if (LRB::n_extra_fields > LRB::max_n_extra_feature) {
-                cerr << "error: only support <= " + to_string(LRB::max_n_extra_feature)
+        n_feature = max_n_past_timestamps + n_extra_fields + 2 + n_edc_feature;
+        if (n_extra_fields) {
+            if (n_extra_fields > max_n_extra_feature) {
+                cerr << "error: only support <= " + to_string(max_n_extra_feature)
                         + " extra fields because of static allocation" << endl;
                 abort();
             }
-            string categorical_feature = to_string(LRB::max_n_past_timestamps + 1);
-            for (uint i = 0; i < LRB::n_extra_fields - 1; ++i) {
-                categorical_feature += "," + to_string(LRB::max_n_past_timestamps + 2 + i);
+            string categorical_feature = to_string(max_n_past_timestamps + 1);
+            for (uint i = 0; i < n_extra_fields - 1; ++i) {
+                categorical_feature += "," + to_string(max_n_past_timestamps + 2 + i);
             }
             training_params["categorical_feature"] = categorical_feature;
         }
         inference_params = training_params;
         //can set number of threads, however the inference time will increase a lot (2x~3x) if use 1 thread
 //        inference_params["num_threads"] = "4";
-        training_data = new LRBTrainingData();
+        training_data = new TrainingData();
 #ifdef EVICTION_LOGGING
         eviction_training_data = new LRBEvictionTrainingData();
 #endif
@@ -623,9 +630,9 @@ public:
 #ifdef EVICTION_LOGGING
         //logging the training and inference happened in the last 1 million
         if (n_early_stop < 0) {
-            LRB::n_logging_start = n_req < LRB::range_log ? 0 : n_req - LRB::range_log;
+            n_logging_start = n_req < range_log ? 0 : n_req - range_log;
         } else {
-            LRB::n_logging_start = n_early_stop < LRB::range_log ? 0 : n_early_stop - LRB::range_log;
+            n_logging_start = n_early_stop < range_log ? 0 : n_early_stop - range_log;
         }
 #endif
     }
@@ -645,7 +652,16 @@ public:
 
     void sample();
 
-    void log_stats();
+    void update_stat_periodic() override;
+
+    static void set_hash_edc() {
+        max_hash_edc_idx = (uint64_t) (memory_window / pow(2, base_edc_window)) - 1;
+        hash_edc = vector<double>(max_hash_edc_idx + 1);
+        for (int i = 0; i < hash_edc.size(); ++i)
+            hash_edc[i] = pow(0.5, i);
+    }
+
+    void remove_from_outcache_metas(Meta &meta, unsigned int &pos, const uint64_t &key);
 
     bool has(const uint64_t &id) {
         auto it = key_map.find(id);
@@ -661,7 +677,7 @@ public:
         for (auto &i: in_cache_metas) {
             if (i._future_timestamp == 0xffffffff) {
                 far_byte += i._size;
-            } else if (i._future_timestamp - LRB::current_t > belady_boundary) {
+            } else if (i._future_timestamp - current_t > belady_boundary) {
                 middle_byte += i._size;
             } else {
                 near_byte += i._size;
@@ -675,8 +691,8 @@ public:
 #endif
 
     void update_stat(bsoncxx::v_noabi::builder::basic::document &doc) override {
-        uint64_t feature_overhead = 0;
-        uint64_t sample_overhead = 0;
+        int64_t feature_overhead = 0;
+        int64_t sample_overhead = 0;
         for (auto &m: in_cache_metas) {
             feature_overhead += m.feature_overhead();
             sample_overhead += m.sample_overhead();
@@ -686,13 +702,13 @@ public:
             sample_overhead += m.sample_overhead();
         }
 
-        doc.append(kvp("n_metadata", to_string(key_map.size())));
-        doc.append(kvp("feature_overhead", to_string(feature_overhead)));
-        doc.append(kvp("sample_overhead", to_string(sample_overhead)));
-        doc.append(kvp("n_force_eviction", to_string(n_force_eviction)));
+        doc.append(kvp("n_metadata", static_cast<int32_t>(key_map.size())));
+        doc.append(kvp("feature_overhead", feature_overhead));
+        doc.append(kvp("sample_overhead", sample_overhead));
+        doc.append(kvp("n_force_eviction", n_force_eviction));
 
         int res;
-        auto importances = vector<double>(LRB::n_feature, 0);
+        auto importances = vector<double>(n_feature, 0);
 
         if (booster) {
             res = LGBM_BoosterFeatureImportance(booster,
@@ -705,6 +721,21 @@ public:
             }
         }
 
+        doc.append(kvp("segment_n_in", [this](sub_array child) {
+            for (const auto &element : segment_n_in)
+                child.append(element);
+        }));
+
+        doc.append(kvp("segment_n_out", [this](sub_array child) {
+            for (const auto &element : segment_n_out)
+                child.append(element);
+        }));
+
+        doc.append(kvp("segment_n_retrain", [this](sub_array child) {
+            for (const auto &element : segment_n_retrain)
+                child.append(element);
+        }));
+
         doc.append(kvp("model_importance", [importances](sub_array child) {
             for (const auto &element : importances)
                 child.append(element);
@@ -716,7 +747,15 @@ public:
                 child.append(element);
         }));
 
+        doc.append(kvp("segment_percent_beyond", [this](sub_array child) {
+            for (const auto &element : segment_percent_beyond)
+                child.append(element);
+        }));
 
+        doc.append(kvp("segment_positive_example_ratio", [this](sub_array child) {
+            for (const auto &element : segment_positive_example_ratio)
+                child.append(element);
+        }));
 #ifdef EVICTION_LOGGING
         doc.append(kvp("near_bytes", [this](sub_array child) {
             for (const auto &element : near_bytes)
@@ -731,7 +770,7 @@ public:
                 child.append(element);
         }));
         try {
-            mongocxx::client client = mongocxx::client{mongocxx::uri(dburl)};
+            mongocxx::client client = mongocxx::client{mongocxx::uri(dburi)};
             mongocxx::database db = client["webcachesim"];
             auto bucket = db.gridfs_bucket();
 
@@ -744,7 +783,7 @@ public:
                 uploader.write((uint8_t *) (&b), sizeof(uint16_t));
             uploader.close();
             uploader = bucket.open_upload_stream(task_id + ".trainings_and_predictions");
-            for (auto &b: LRB::trainings_and_predictions)
+            for (auto &b: trainings_and_predictions)
                 uploader.write((uint8_t *) (&b), sizeof(float));
             uploader.close();
 //            uploader = bucket.open_upload_stream(task_id + ".training_and_prediction_timestamps");
@@ -760,7 +799,7 @@ public:
     }
 
     vector<int> get_object_distribution_n_past_timestamps() {
-        vector<int> distribution(LRB::max_n_past_timestamps, 0);
+        vector<int> distribution(max_n_past_timestamps, 0);
         for (auto &meta: in_cache_metas) {
             if (nullptr == meta._extra) {
                 ++distribution[0];
@@ -781,4 +820,6 @@ public:
 };
 
 static Factory<LRBCache> factoryLRB("LRB");
+
+}
 #endif //WEBCACHESIM_LRB_H

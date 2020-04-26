@@ -38,7 +38,7 @@ protected:
     uint64_t byte_million_req;
     unsigned int current_t;
     string task_id;
-    string dburl;
+    string dburi;
     vector<double> beyond_byte_ratio;
     vector<double> beyond_obj_ratio;
     uint64_t boundary;
@@ -54,8 +54,8 @@ public:
                 byte_million_req = stoull(it.second);
             } else if (it.first == "task_id") {
                 task_id = it.second;
-            } else if (it.first == "dburl") {
-                dburl = it.second;
+            } else if (it.first == "dburi") {
+                dburi = it.second;
             } else if (it.first == "boundary") {
                 boundary = stoull(it.second);
             } else {
@@ -107,7 +107,7 @@ public:
         }));
         //Log to GridFs because the value is too big to store in mongodb
         try {
-            mongocxx::client client = mongocxx::client{mongocxx::uri(dburl)};
+            mongocxx::client client = mongocxx::client{mongocxx::uri(dburi)};
             mongocxx::database db = client["webcachesim"];
             auto bucket = db.gridfs_bucket();
 

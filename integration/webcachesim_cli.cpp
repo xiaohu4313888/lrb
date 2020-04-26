@@ -35,6 +35,11 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    for (int i = 0; i < argc; ++i) {
+        cerr<<argv[i]<<" ";
+    }
+    cerr<<endl;
+
     map<string, string> params;
 
     // parse cache parameters
@@ -66,10 +71,10 @@ int main(int argc, char *argv[]) {
 
     for (auto &k: params) {
         //don't store authentication information
-        if (unordered_set<string>({"dburl"}).count(k.first)) {
+        if (unordered_set<string>({"dburi"}).count(k.first)) {
             continue;
         }
-        if (!unordered_set<string>({"dbcollection", "task_id"}).count(k.first)) {
+        if (!unordered_set<string>({"dbcollection", "task_id", "enable_trace_format_check"}).count(k.first)) {
             key_builder.append(kvp(k.first, k.second));
         } else {
             value_builder.append(kvp(k.first, k.second));
@@ -95,8 +100,8 @@ int main(int argc, char *argv[]) {
     cout << bsoncxx::to_json(value_builder.view()) << endl;
 
     try {
-        mongocxx::client client = mongocxx::client{mongocxx::uri(params["dburl"])};
-        auto db = client[mongocxx::uri(params["dburl"]).database()];
+        mongocxx::client client = mongocxx::client{mongocxx::uri(params["dburi"])};
+        auto db = client[mongocxx::uri(params["dburi"]).database()];
         mongocxx::options::replace option;
         db[params["dbcollection"]].replace_one(key_builder.extract(), value_builder.extract(), option.upsert(true));
     } catch (const std::exception &xcp) {

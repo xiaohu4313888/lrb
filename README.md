@@ -86,7 +86,7 @@ where
 | parameter |  type | description |
 | ---- | --- | --- |
 | bloom_filter | 0/1  | use bloom filter as admission control in front of cache algorithm |
-| dburl, dbcollection  | string | upload simulation results to mongodb |
+| dburi, dbcollection  | string | upload simulation results to mongodb |
 | is_metadata_in_cache_size  | 0/1 |  deducted metadata overhead from cache size  |
 | n_early_stop  | int | stop simulation after n requests, <0 means no early stop |
  

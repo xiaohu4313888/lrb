@@ -1,25 +1,4 @@
-import argparse
 import yaml
-
-scheduler_args_default = {
-    'debug': False
-}
-
-
-def parse_cmd_args():
-    # how to schedule parallel simulations
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--debug',
-                        help='debug mode only run 1 task locally',
-                        type=bool,
-                        choices=[True, False])
-    parser.add_argument('--authentication_file', type=str, nargs='?', help='authentication for database', required=True)
-    parser.add_argument('--config_file', type=str, nargs='?', help='runner configuration file', required=True)
-    parser.add_argument('--algorithm_param_file', type=str, help='algorithm parameter config file', required=True)
-    parser.add_argument('--trace_param_file', type=str, help='trace parameter config file', required=True)
-    args = parser.parse_args()
-
-    return vars(args)
 
 
 def cartesian_product(param: dict):
@@ -46,17 +25,14 @@ def cartesian_product(param: dict):
     return res
 
 
-def job_to_tasks(args):
+def get_task(args):
     """
     convert job config to list of task
     @:returns dict/[dict]
     """
-    # authentication
-    with open(args['authentication_file']) as f:
-        file_params = yaml.load(f)
     # job config file
-    with open(args['config_file']) as f:
-        file_params = {**file_params, **yaml.load(f)}
+    with open(args['job_file']) as f:
+        file_params = {**file_params, **yaml.load(f, Loader=yaml.FullLoader)}
     for k, v in file_params.items():
         if args.get(k) is None:
             args[k] = v
@@ -64,11 +40,11 @@ def job_to_tasks(args):
     # load algorithm parameters
     assert args.get('algorithm_param_file') is not None
     with open(args['algorithm_param_file']) as f:
-        default_algorithm_params = yaml.load(f)
+        default_algorithm_params = yaml.load(f, Loader=yaml.FullLoader)
 
     assert args.get('trace_param_file') is not None
     with open(args['trace_param_file']) as f:
-        trace_params = yaml.load(f)
+        trace_params = yaml.load(f, Loader=yaml.FullLoader)
 
     tasks = []
     for trace_file in args['trace_files']:
@@ -109,25 +85,11 @@ def job_to_tasks(args):
                             'cache_types',
                             'trace_files',
                             'algorithm_param_file',
-                            'authentication_file',
                             'trace_param_file',
-                            'config_file',
+                            'job_file',
                             'debug',
                             'nodes',
                         ] and v is not None:
                             task[k] = v
                     tasks.append(task)
     return tasks
-
-
-def parse():
-    """
-    parse from cmd or kwargs.
-    @:return: parsed nest dict
-    """
-
-    args = parse_cmd_args()
-    tasks = job_to_tasks(args)
-    if args["debug"]:
-        print(tasks)
-    return args, tasks

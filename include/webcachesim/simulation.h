@@ -5,7 +5,6 @@
 #ifndef WEBCACHESIM_SIMULATION_H
 #define WEBCACHESIM_SIMULATION_H
 
-#include <map>
 #include <string>
 #include <chrono>
 #include <fstream>
@@ -36,6 +35,7 @@ public:
     unique_ptr<Cache> webcache = nullptr;
     std::ifstream infile;
     int64_t n_early_stop = -1;  //-1: no stop
+    int64_t seq_start = 0;
 
     std::string _trace_file;
     std::string _cache_type;
@@ -60,6 +60,7 @@ public:
     //global statistics
     std::vector<int64_t> seg_byte_req, seg_byte_miss, seg_object_req, seg_object_miss;
     std::vector<int64_t> seg_rss;
+    std::vector<int64_t> seg_byte_in_cache;
     //rt: real_time
     std::vector<int64_t> rt_seg_byte_req, rt_seg_byte_miss, rt_seg_object_req, rt_seg_object_miss;
     std::vector<int64_t> rt_seg_rss;
@@ -68,6 +69,9 @@ public:
     //use relative seq starting from 0
     uint64_t seq = 0;
     std::chrono::system_clock::time_point t_now;
+    //decompose miss
+    int64_t byte_miss_cache = 0;
+    int64_t byte_miss_filter = 0;
 
 
     FrameWork(const std::string &trace_file, const std::string &cache_type, const uint64_t &cache_size,
@@ -76,8 +80,6 @@ public:
     bsoncxx::builder::basic::document simulate();
 
     bsoncxx::builder::basic::document simulation_results();
-
-    void check_n_extra_field();
 
     void adjust_real_time_offset();
 

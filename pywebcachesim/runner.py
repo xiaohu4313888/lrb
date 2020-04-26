@@ -1,7 +1,5 @@
-from pywebcachesim.runner import parser
 import time
 import subprocess
-import sys
 
 
 def to_task_str(task: dict):
@@ -22,7 +20,7 @@ def to_task_str(task: dict):
     return task_id, res
 
 
-def runner_run(args: dict, tasks: list):
+def run(args: dict, tasks: list):
     # debug mode, only 1 task
     if args["debug"]:
         tasks = tasks[:1]
@@ -46,12 +44,5 @@ def runner_run(args: dict, tasks: list):
                        stdin=f)
 
 
-def main():
-    if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 6):
-        raise Exception('Error: python version need to be at least 3.6')
-    args, tasks = parser.parse()
-    return runner_run(args, tasks)
 
 
-if __name__ == '__main__':
-    main()

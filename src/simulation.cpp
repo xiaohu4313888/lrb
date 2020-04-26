@@ -23,41 +23,10 @@ using bsoncxx::builder::basic::sub_array;
 
 FrameWork::FrameWork(const string &trace_file, const string &cache_type, const uint64_t &cache_size,
                      map<string, string> &params) {
-    //set cache_type related
+    _trace_file = trace_file;
     _cache_type = cache_type;
     _cache_size = cache_size;
     is_offline = offline_algorithms.count(_cache_type);
-#ifdef EVICTION_LOGGING
-    //logging eviction requires next_seq information
-    is_offline = true;
-#endif
-
-    //trace_file related init
-    _trace_file = trace_file;
-    check_n_extra_field();
-    params["n_extra_fields"] = to_string(n_extra_fields);
-    if (is_offline) {
-        annotate(_trace_file, n_extra_fields);
-    }
-
-    if (is_offline) {
-        _trace_file = _trace_file + ".ant";
-    }
-    infile.open(_trace_file);
-    if (!infile) {
-        cerr << "Exception opening/reading file " << _trace_file << endl;
-        exit(-1);
-    }
-
-    // create cache
-    webcache = move(Cache::create_unique(cache_type));
-    if (webcache == nullptr) {
-        cerr << "cache type not implemented" << endl;
-        abort();
-    }
-
-    // configure cache size
-    webcache->setSize(cache_size);
 
     for (auto it = params.cbegin(); it != params.cend();) {
         if (it->first == "uni_size") {
@@ -78,42 +47,56 @@ FrameWork::FrameWork(const string &trace_file, const string &cache_type, const u
         } else if (it->first == "segment_window") {
             segment_window = stoull((it->second));
             ++it;
+        } else if (it->first == "n_extra_fields") {
+            n_extra_fields = stoi((it->second));
+            ++it;
         } else if (it->first == "real_time_segment_window") {
             real_time_segment_window = stoull((it->second));
             it = params.erase(it);
         } else if (it->first == "n_early_stop") {
             n_early_stop = stoll((it->second));
             ++it;
+        } else if (it->first == "seq_start") {
+            seq_start = stoll((it->second));
+            ++it;
         } else {
             ++it;
         }
     }
+#ifdef EVICTION_LOGGING
+    //logging eviction requires next_seq information
+    is_offline = true;
+#endif
+
+    //trace_file related init
+    if (is_offline) {
+        annotate(_trace_file, n_extra_fields);
+    }
+
+    if (is_offline) {
+        _trace_file = _trace_file + ".ant";
+    }
+    infile.open(_trace_file);
+    if (!infile) {
+        cerr << "Exception opening/reading file " << _trace_file << endl;
+        exit(-1);
+    }
+
+    //set cache_type related
+    // create cache
+    webcache = move(Cache::create_unique(cache_type));
+    if (webcache == nullptr) {
+        cerr << "cache type not implemented" << endl;
+        abort();
+    }
+
+    // configure cache size
+    webcache->setSize(cache_size);
+
     webcache->init_with_params(params);
 
     adjust_real_time_offset();
     extra_features = vector<uint16_t>(n_extra_fields);
-}
-
-void FrameWork::check_n_extra_field() {
-    //TODO: take trace_file_name as an argument?
-    std::ifstream in_file(_trace_file);
-    if (!in_file) {
-        throw std::runtime_error("Exception opening/reading file " + _trace_file);
-    }
-
-    //get whether file is in a correct format
-    std::string line;
-    getline(in_file, line);
-    istringstream iss(line);
-    uint64_t tmp;
-    int counter = 0;
-    while (iss >> tmp) {
-        ++counter;
-    }
-    //format: n_seq t id size [extra]
-    int n_base_field = 3;
-    n_extra_fields = counter - n_base_field;
-    in_file.close();
 }
 
 void FrameWork::adjust_real_time_offset() {
@@ -144,7 +127,7 @@ void FrameWork::update_real_time_stats() {
 
 void FrameWork::update_stats() {
     auto _t_now = chrono::system_clock::now();
-    cerr << "\nsegment id: " << seq / segment_window - 1 << endl
+    cerr << "\nseq: " << seq << endl
          << "cache size: " << webcache->_currentSize << "/" << webcache->_cacheSize
          << " (" << ((double) webcache->_currentSize) / webcache->_cacheSize << ")" << endl
          << "delta t: " << chrono::duration_cast<std::chrono::milliseconds>(_t_now - t_now).count() / 1000.
@@ -155,14 +138,16 @@ void FrameWork::update_stats() {
     seg_byte_req.emplace_back(byte_req);
     seg_object_miss.emplace_back(obj_miss);
     seg_object_req.emplace_back(obj_req);
+    seg_byte_in_cache.emplace_back(webcache->_currentSize);
     byte_miss = obj_miss = byte_req = obj_req = 0;
     //reduce cache size by metadata
     auto metadata_overhead = get_rss();
     seg_rss.emplace_back(metadata_overhead);
-    webcache->update_stat_periodic();
-    if (is_metadata_in_cache_size)
+    if (is_metadata_in_cache_size) {
         webcache->setSize(_cache_size - metadata_overhead);
+    }
     cerr << "rss: " << metadata_overhead << endl;
+    webcache->update_stat_periodic();
 }
 
 
@@ -182,6 +167,7 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
         req = new SimpleRequest(0, 0, 0);
     t_now = system_clock::now();
 
+    int64_t seq_start_counter = 0;
     while (true) {
         if (is_offline) {
             if (!(infile >> next_seq >> t >> id >> size))
@@ -191,19 +177,23 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
                 break;
         }
 
+        if (seq_start_counter++ < seq_start) {
+            continue;
+        }
         if (seq == n_early_stop)
             break;
+
         for (int i = 0; i < n_extra_fields; ++i)
             infile >> extra_features[i];
         if (uni_size)
             size = 1;
 
-        DPRINTF("seq: %lu\n", seq);
-
-        while (t >= time_window_end)
+        while (t >= time_window_end) {
             update_real_time_stats();
-        if (seq && !(seq % segment_window))
+        }
+        if (seq && !(seq % segment_window)) {
             update_stats();
+        }
 
         update_metric_req(byte_req, obj_req, size);
         update_metric_req(rt_byte_req, rt_obj_req, size)
@@ -213,17 +203,26 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
         else
             req->reinit(id, size, seq, &extra_features);
 
-        bool seen = (!bloom_filter) || filter->exist_or_insert(id);
-        if (seen) {
+        bool is_admitting = true;
+        if (true == bloom_filter) {
+            bool exist_in_cache = webcache->exist(req->_id);
+            //in cache object, not consider bloom_filter
+            if (false == exist_in_cache) {
+                is_admitting = filter->exist_or_insert(id);
+            }
+        }
+        if (is_admitting) {
             bool is_hit = webcache->lookup(*req);
             if (!is_hit) {
                 update_metric_req(byte_miss, obj_miss, size);
                 update_metric_req(rt_byte_miss, rt_obj_miss, size)
+                byte_miss_cache += size;
                 webcache->admit(*req);
             }
         } else {
             update_metric_req(byte_miss, obj_miss, size);
             update_metric_req(rt_byte_miss, rt_obj_miss, size)
+            byte_miss_filter += size;
         }
 
         ++seq;
@@ -246,6 +245,8 @@ bsoncxx::builder::basic::document FrameWork::simulation_results() {
                              accumulate<vector<int64_t>::const_iterator, double>(seg_byte_req.begin(),
                                                                                  seg_byte_req.end(), 0)
     ));
+    value_builder.append(kvp("byte_miss_cache", byte_miss_cache));
+    value_builder.append(kvp("byte_miss_filter", byte_miss_filter));
     value_builder.append(kvp("segment_byte_miss", [this](sub_array child) {
         for (const auto &element : seg_byte_miss)
             child.append(element);
@@ -266,6 +267,11 @@ bsoncxx::builder::basic::document FrameWork::simulation_results() {
         for (const auto &element : seg_rss)
             child.append(element);
     }));
+    value_builder.append(kvp("segment_byte_in_cache", [this](sub_array child) {
+        for (const auto &element : seg_byte_in_cache)
+            child.append(element);
+    }));
+
     value_builder.append(kvp("real_time_segment_byte_miss", [this](sub_array child) {
         for (const auto &element : rt_seg_byte_miss)
             child.append(element);
@@ -300,8 +306,23 @@ bsoncxx::builder::basic::document _simulation(string trace_file, string cache_ty
 
 bsoncxx::builder::basic::document simulation(string trace_file, string cache_type,
                                              uint64_t cache_size, map<string, string> params) {
-    //TODO: always do sanity check on trace is costly. Can cache the sanity check results
-    trace_sanity_check(trace_file);
+    int n_extra_fields = get_n_fields(trace_file) - 3;
+    params["n_extra_fields"] = to_string(n_extra_fields);
+
+    bool enable_trace_format_check = true;
+    if (params.find("enable_trace_format_check") != params.end()) {
+        enable_trace_format_check = stoi(params.find("enable_trace_format_check")->second);
+    }
+
+    if (true == enable_trace_format_check) {
+        auto if_pass = trace_sanity_check(trace_file, params);
+        if (true == if_pass) {
+            cerr << "pass sanity check" << endl;
+        } else {
+            throw std::runtime_error("fail sanity check");
+        }
+    }
+
     if (cache_type == "Adaptive-TinyLFU")
         return _simulation_tinylfu(trace_file, cache_type, cache_size, params);
     else

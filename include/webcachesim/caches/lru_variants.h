@@ -39,7 +39,7 @@ protected:
     vector<uint16_t> hit_timestamps;
     uint64_t byte_million_req;
     string task_id;
-    string dburl;
+    string dburi;
 #endif
 
 
@@ -52,8 +52,8 @@ protected:
                 byte_million_req = stoull(it.second);
             } else if (it.first == "task_id") {
                 task_id = it.second;
-            } else if (it.first == "dburl") {
-                dburl = it.second;
+            } else if (it.first == "dburi") {
+                dburi = it.second;
             } else {
                 cerr << "unrecognized parameter: " << it.first << endl;
             }
@@ -66,7 +66,7 @@ protected:
     void update_stat(bsoncxx::builder::basic::document &doc) override {
         //Log to GridFs because the value is too big to store in mongodb
         try {
-            mongocxx::client client = mongocxx::client{mongocxx::uri(dburl)};
+            mongocxx::client client = mongocxx::client{mongocxx::uri(dburi)};
             mongocxx::database db = client["webcachesim"];
             auto bucket = db.gridfs_bucket();
 
@@ -105,6 +105,8 @@ public:
     }
 
     bool lookup(SimpleRequest &req) override;
+
+    bool exist(const KeyT &key) override;
 
     void admit(SimpleRequest &req) override;
 

@@ -5,6 +5,8 @@
 #ifndef WEBCACHESIM_UTILS_H
 #define WEBCACHESIM_UTILS_H
 
+#include <fstream>
+#include <sstream>
 
 // hash_combine derived from boost/functional/hash/hash.hpp:212
 // Copyright 2005-2014 Daniel James.
@@ -28,6 +30,25 @@ namespace std {
             return seed;
         }
     };
+}
+
+
+inline int get_n_fields(const std::string& filename) {
+    std::ifstream infile(filename);
+    if (!infile) {
+        throw std::runtime_error("Exception opening file "+filename);
+    }
+    //get whether file is in a correct format
+    std::string line;
+    getline(infile, line);
+    std::istringstream iss(line);
+    uint64_t tmp;
+    int counter = 0;
+    while (iss >> tmp) {
+        ++counter;
+    }
+    infile.close();
+    return counter;
 }
 
 #define update_metric_req(byte_metric, object_metric, size) \

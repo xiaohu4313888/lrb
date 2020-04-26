@@ -168,6 +168,10 @@ const SimpleRequest & LRUCache::evict_return()
     return req;
 }
 
+bool LRUCache::exist(const KeyT &key) {
+    return _cacheMap.find(key) != _cacheMap.end();
+}
+
 /*
   FIFO: First-In First-Out eviction
 */

@@ -48,7 +48,7 @@ public:
     vector<uint16_t> eviction_logic_timestamps;
     uint64_t byte_million_req;
     string task_id;
-    string dburl;
+    string dburi;
 #endif
 
     void init_with_params(const map<string, string> &params) override {
@@ -61,8 +61,8 @@ public:
                 byte_million_req = stoull(it.second);
             } else if (it.first == "task_id") {
                 task_id = it.second;
-            } else if (it.first == "dburl") {
-                dburl = it.second;
+            } else if (it.first == "dburi") {
+                dburi = it.second;
 #endif
             } else {
                 cerr << "unrecognized parameter: " << it.first << endl;
@@ -77,7 +77,7 @@ public:
     void update_stat(bsoncxx::v_noabi::builder::basic::document &doc) override {
         //Log to GridFs because the value is too big to store in mongodb
         try {
-            mongocxx::client client = mongocxx::client{mongocxx::uri(dburl)};
+            mongocxx::client client = mongocxx::client{mongocxx::uri(dburi)};
             mongocxx::database db = client["webcachesim"];
             auto bucket = db.gridfs_bucket();
 

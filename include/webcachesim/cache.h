@@ -34,6 +34,10 @@ namespace webcachesim {
 
         // main cache management functions (to be defined by a policy)
         virtual bool lookup(SimpleRequest &req) = 0;
+        // check whether an object in a cache. Not update metadata
+        virtual bool exist(const KeyT & key) {
+            throw runtime_error("Error: exist() function not implemented");
+        }
 
         virtual void admit(SimpleRequest &req) = 0;
 

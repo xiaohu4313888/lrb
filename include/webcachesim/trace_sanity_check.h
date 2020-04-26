@@ -6,8 +6,9 @@
 #define WEBCACHESIM_TRACE_SANITY_CHECK_H
 
 #include <string>
+#include <map>
 
-void trace_sanity_check(const std::string& trace_file);
+bool trace_sanity_check(const std::string& trace_file, std::map<std::string, std::string> &params);
 
 
 #endif //WEBCACHESIM_TRACE_SANITY_CHECK_H

@@ -21,7 +21,8 @@ setup(
         # 'pygit2',
         'numpy',
         'pandas',
-        'pymongo'
+        'pymongo',
+        'sklearn',
         # 'arrow',
         # 'seaborn',
         # 'matplotlib',

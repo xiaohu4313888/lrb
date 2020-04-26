@@ -4,6 +4,10 @@ enable_trace_format_check: 0
 segment_window: 1000000
 real_time_segment_window: 600
 uni_size: 0
+n_iteration: 3
+n_beam: 16
+n_fitting_points: 2
+ratio_validation: 0.2
 
 nodes:
   - "1/:"

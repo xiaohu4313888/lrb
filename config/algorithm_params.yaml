@@ -18,6 +18,8 @@ LR:
     - 0.000001
   max_n_past_timestamps: 4
   version: not_future
+RelaxedBelady:
+  is_metadata_in_cache_size: 0
 PercentRelaxedBelady:
   p:
     - 0.01
@@ -40,7 +42,10 @@ PercentRelaxedBelady:
   memorize_sample:
     - 0
     - 1
+Belady:
+  is_metadata_in_cache_size: 0
 BeladySample:
+  is_metadata_in_cache_size: 0
   sample_rate:
     - 64
   #    - 128

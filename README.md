@@ -67,7 +67,7 @@ For ease of use, we also provide a docker image which contains the simulator. Ou
 ```
 Alternatively, you may follow the [instruction](INSTALL.md) to manually install the simulator.
 
-## Using an exisiting policy
+## Using an existing policy
 
 The basic interface is
 
@@ -129,6 +129,9 @@ LRB memory window for Wikipedia trace different cache sizes in the paper (based 
 |   256  |  167772160  |
 |   512  |  335544320  |
 |   1024  |  671088640 |
+
+## Automatically tuning LRB memory window on a new trace
+[LRB_WINDOW_TUNING.md](LRB_WINDOW_TUNING.md) describes how to tune LRB memory window on a new trace.
 
 ## Contributors are welcome
 

@@ -13,7 +13,7 @@ java -version
 # should be 1.8
 
 
-git clone https://github.com/sunnyszy/lrb webcachesim
+git clone --recurse-submodules https://github.com/sunnyszy/lrb webcachesim
 
 # dependency can be optionally installed in non-default path using CMAKE_INSTALL_PREFIX CMAKE_PREFIX_PATH
 cd webcachesim
@@ -66,13 +66,18 @@ export WEBCACHESIM_ROOT=${YOUR webcachesim DIR}
 webcachesim_cli
 #output: webcachesim_cli traceFile cacheType cacheSize [--param=value] 
 
+# install modified emukit for memory window tuning
+cd lib/emukit
+pip3 install -e .
+cd ../..
+
 # install python framework
 pip3 install -e .
 
 
 ```
-* [Optional] Set up a mongodb instance to save simulation results as json file to mongodb. One option is using [mlab](https://mlab.com/home) to register a free one.
+* [Optional] Set up a mongodb instance. LRB uses this to store tuning results. 
 * [Optional] pywebcachesim is a python wrapper to run multiple simulation in parallel on multiple nodes.
 ```shell script
-python3 pywebcachesim/runner/runner.py --config_file ${YOUR CONFIG FILE} --algorithm_param_file ${YOUR ALGORITHM PARAM FILE} --trace_param_file ${YOUR TRACE PARAM FILE} --authentication_file ${YOUR AUTHENTICATION FILE} 
+python3 pywebcachesim/simulate.py --job_file ${YOUR JOB CONFIG FILE} --algorithm_param_file ${YOUR ALGORITHM PARAM FILE} --trace_param_file ${YOUR TRACE PARAM FILE} --dburi ${MONGODB URI}
 ```

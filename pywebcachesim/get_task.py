@@ -32,7 +32,7 @@ def get_task(args):
     """
     # job config file
     with open(args['job_file']) as f:
-        file_params = {**file_params, **yaml.load(f, Loader=yaml.FullLoader)}
+        file_params = yaml.load(f, Loader=yaml.FullLoader)
     for k, v in file_params.items():
         if args.get(k) is None:
             args[k] = v

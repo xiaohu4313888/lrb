@@ -246,7 +246,7 @@ bool AdaptSizeCache::lookup(SimpleRequest& req)
     reconfigure();
 
     uint64_t tmpCacheObject0 = req._id;
-    auto size = _size_map[tmpCacheObject0];
+    auto size = req.get_size();
     if(_intervalMetadata.count(tmpCacheObject0)==0
        && _longTermMetadata.count(tmpCacheObject0)==0) {
         // new object

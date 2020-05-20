@@ -16,7 +16,7 @@ public class tinylfu {
         String trace_file = args[0];
 
         long cache_size = Long.parseUnsignedLong(args[2]);
-        int segment_window = 10000000;
+        int segment_window = 1000000;
         for (int i = 3; i < args.length; i += 2) {
             if (args[i].equals("segment_window")) {
                 segment_window = Integer.valueOf(args[i + 1]);
@@ -74,6 +74,15 @@ public class tinylfu {
 
                 // read next line
                 line = reader.readLine();
+            }
+
+            if (seq%segment_window != 0) {
+                System.err.println("residual segment");
+                System.err.println("bmr: " + (double)(byte_miss)/byte_req + "\n");
+                //spliter
+                if (seq != segment_window)
+                    System.out.print(" ");
+                System.out.print(byte_req+" "+byte_miss+" "+obj_req+" "+obj_miss);
             }
             reader.close();
         } catch (IOException e) {

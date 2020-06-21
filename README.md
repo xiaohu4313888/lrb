@@ -63,7 +63,7 @@ Simulator will run a sanity check on the trace when starting up.
 
 For ease of use, we also provide a docker image which contains the simulator. Our documentation assumes that you use this image. To run it:
 ```shell script
- docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.1 ${traceFile} ${cacheType} ${cacheSize} [--param=value]
+ docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 ${traceFile} ${cacheType} ${cacheSize} [--param=value]
 ```
 Alternatively, you may follow the [instruction](INSTALL.md) to manually install the simulator.
 
@@ -97,7 +97,7 @@ where
 
 ##### Running LRU on Wiki trace 1TB
 ```bash
-docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.1 wiki2018.tr LRU 1099511627776
+docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 wiki2018.tr LRU 1099511627776
 
 # running sanity check on trace: /trace/wiki2018.tr
 # ...
@@ -113,12 +113,12 @@ docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.1 wiki2
 
 ##### Running B-LRU on Wiki trace 1TB
 ```bash
-docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.1 wiki2018.tr LRU 1099511627776 --bloom_filter=1
+docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 wiki2018.tr LRU 1099511627776 --bloom_filter=1
 ```
 
 ##### Running LRB on Wiki trace 1TB
 ```bash
-docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.1 wiki2018.tr LRB 1099511627776 --memory_window=671088640
+docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 wiki2018.tr LRB 1099511627776 --memory_window=671088640
 ```
 LRB memory window for Wikipedia trace different cache sizes in the paper (based on first 20% validation prefix):
 

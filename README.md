@@ -67,6 +67,21 @@ For ease of use, we also provide a docker image which contains the simulator. Ou
 ```
 Alternatively, you may follow the [instruction](INSTALL.md) to manually install the simulator.
 
+### Common issues
+
+If you see error when running docker 
+```bash
+error: running sanity check on trace: /trace/wiki2018.tr
+terminate called after throwing an instance of 'std::runtime_error'
+what(): Exception opening file /trace/wiki2018.tr
+```
+Please verify the trace directory correctly mounted by running
+```bash
+docker run -it --entrypoint /bin/bash -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 -c "ls /trace"
+# You should be able to see wiki2018.tr listed
+```
+
+
 ## Using an existing policy
 
 The basic interface is

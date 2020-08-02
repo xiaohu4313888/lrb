@@ -138,20 +138,9 @@ LRB memory window for Wikipedia trace different cache sizes in the paper (based 
 Want to contribute? Great! We follow the [Github contribution work flow](https://help.github.com/articles/github-flow/).
 This means that submissions should fork and use a Github pull requests to get merged into this code base.
 
-There are a couple ways to help out.
-
-### Documentation and use cases
-
-Tell us how you use webcachesim or how you'd want to use webcachesim and what you're missing to implement your use case.
-Feel free to [create an issue](https://github.com/dasebe/webcachesim/issues/new) for this purpose.
-
 ### Bug Reports
 
-If you come across a bug in webcachesim, please file a bug report by [creating a new issue](https://github.com/dasebe/webcachesim/issues/new). This is an early-stage project, which depends on your input!
-
-### Write test cases
-
-This project has not be thoroughly tested, any test cases are likely to get a speedy merge.
+If you come across a bug in webcachesim, please file a bug report by [creating a new issue](https://github.com/sunnyszy/lrb/issues/new). This is an early-stage project, which depends on your input!
 
 ### Contribute a new caching policy
 

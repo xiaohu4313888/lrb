@@ -10,3 +10,12 @@
 [submodule "lib/mongo-cxx-driver"]
 	path = lib/mongo-cxx-driver
 	url = https://github.com/sunnyszy/mongo-cxx-driver
+[submodule "lib/libbf"]
+	path = lib/libbf
+	url = https://github.com/sunnyszy/libbf
+[submodule "lib/sparsepp"]
+	path = lib/sparsepp
+	url = https://github.com/sunnyszy/sparsepp
+[submodule "lib/LightGBM"]
+	path = lib/LightGBM
+	url = https://github.com/sunnyszy/LightGBM

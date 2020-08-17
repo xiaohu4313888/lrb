@@ -1,3 +1,12 @@
 [submodule "lib/emukit"]
 	path = lib/emukit
 	url = https://github.com/sunnyszy/emukit
+[submodule "lib/fast-cpp-csv-parser"]
+	path = lib/fast-cpp-csv-parser
+	url = https://github.com/sunnyszy/fast-cpp-csv-parser
+[submodule "lib/mongo-c-driver"]
+	path = lib/mongo-c-driver
+	url = https://github.com/sunnyszy/mongo-c-driver
+[submodule "lib/mongo-cxx-driver"]
+	path = lib/mongo-cxx-driver
+	url = https://github.com/sunnyszy/mongo-cxx-driver

@@ -20,7 +20,7 @@
 #include <queue>
 #include <shared_mutex>
 #include <list>
-#include "sparsepp/spp.h"
+#include "sparsepp/sparsepp/spp.h"
 
 using namespace webcachesim;
 using namespace std;

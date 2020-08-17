@@ -8,7 +8,7 @@
 #include "cache.h"
 #include <unordered_map>
 #include <unordered_set>
-#include "sparsepp/spp.h"
+#include "sparsepp/sparsepp/spp.h"
 #include <vector>
 #include <random>
 #include <cmath>

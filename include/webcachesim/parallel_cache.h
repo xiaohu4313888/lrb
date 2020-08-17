@@ -10,7 +10,7 @@
 #include <queue>
 #include <mutex>
 #include <thread>
-#include "sparsepp/spp.h"
+#include "sparsepp/sparsepp/spp.h"
 #include <shared_mutex>
 #include <atomic>
 #include <chrono>

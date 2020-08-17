@@ -19,7 +19,7 @@ git clone --recurse-submodules https://github.com/sunnyszy/lrb webcachesim
 cd webcachesim
 
 # install LightGBM
-cd lib/LightGBM-eloiseh/build
+cd lib/LightGBM/build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j8
 sudo make install
@@ -29,21 +29,22 @@ cd ../../..
 sudo apt-get install -y cmake libssl-dev libsasl2-dev
 
 # installing mongo c
-cd lib/mongo-c-driver-1.13.1/cmake-build/
+cd lib/mongo-c-driver/cmake-build
 cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF ..
 make -j8
 sudo make install
 cd ../../..
 
 # installing mongo-cxx
-cd lib/mongo-cxx-driver-r3.4.0/build
+cd lib/mongo-cxx-driver/build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
-sudo make -j8
+sudo cmake --build . --target EP_mnmlstc_core
+make -j8
 sudo make install
 cd ../../..
 
 # installing libbf
-cd lib/libbf-dadd48e/build
+cd lib/libbf/build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j8
 sudo make install

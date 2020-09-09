@@ -196,7 +196,7 @@ public:
                 const uint64_t &past_timestamp,
                 const vector<uint16_t> &extra_features,
                 const uint64_t &future_timestamp,
-                const list<LRBKey>::const_iterator &it) :
+                const list<KeyT>::const_iterator &it) :
             Meta(key, size, past_timestamp, extra_features, future_timestamp) {
         p_last_request = it;
     };
@@ -669,26 +669,6 @@ public:
             return false;
         return !it->second.list_idx;
     }
-
-#ifdef EVICTION_LOGGING
-
-    void update_stat_periodic() override {
-        int64_t near_byte = 0, middle_byte = 0, far_byte = 0;
-        for (auto &i: in_cache_metas) {
-            if (i._future_timestamp == 0xffffffff) {
-                far_byte += i._size;
-            } else if (i._future_timestamp - current_t > belady_boundary) {
-                middle_byte += i._size;
-            } else {
-                near_byte += i._size;
-            }
-        }
-        near_bytes.emplace_back(near_byte);
-        middle_bytes.emplace_back(middle_byte);
-        far_bytes.emplace_back(far_byte);
-    }
-
-#endif
 
     void update_stat(bsoncxx::v_noabi::builder::basic::document &doc) override {
         int64_t feature_overhead = 0;

@@ -196,7 +196,7 @@ public:
                 const uint64_t &past_timestamp,
                 const vector<uint16_t> &extra_features,
                 const uint64_t &future_timestamp,
-                const list<LRBKey>::const_iterator &it) :
+                const list<KeyT>::const_iterator &it) :
             Meta(key, size, past_timestamp, extra_features, future_timestamp) {
         p_last_request = it;
     };
@@ -670,26 +670,6 @@ public:
         return !it->second.list_idx;
     }
 
-#ifdef EVICTION_LOGGING
-
-    void update_stat_periodic() override {
-        int64_t near_byte = 0, middle_byte = 0, far_byte = 0;
-        for (auto &i: in_cache_metas) {
-            if (i._future_timestamp == 0xffffffff) {
-                far_byte += i._size;
-            } else if (i._future_timestamp - current_t > belady_boundary) {
-                middle_byte += i._size;
-            } else {
-                near_byte += i._size;
-            }
-        }
-        near_bytes.emplace_back(near_byte);
-        middle_bytes.emplace_back(middle_byte);
-        far_bytes.emplace_back(far_byte);
-    }
-
-#endif
-
     void update_stat(bsoncxx::v_noabi::builder::basic::document &doc) override {
         int64_t feature_overhead = 0;
         int64_t sample_overhead = 0;
@@ -771,17 +751,20 @@ public:
         }));
         try {
             mongocxx::client client = mongocxx::client{mongocxx::uri(dburi)};
-            mongocxx::database db = client["webcachesim"];
+            auto db = client[mongocxx::uri(dburi).database()];
             auto bucket = db.gridfs_bucket();
 
             auto uploader = bucket.open_upload_stream(task_id + ".evictions");
+            cout << "evict1 num:" << eviction_qualities.size() << endl;
             for (auto &b: eviction_qualities)
                 uploader.write((uint8_t *) (&b), sizeof(uint8_t));
             uploader.close();
             uploader = bucket.open_upload_stream(task_id + ".eviction_timestamps");
+            cout << "evict2 num:" << eviction_logic_timestamps.size() << endl;
             for (auto &b: eviction_logic_timestamps)
                 uploader.write((uint8_t *) (&b), sizeof(uint16_t));
             uploader.close();
+            cout << "evict3 num:" << trainings_and_predictions.size() << endl;
             uploader = bucket.open_upload_stream(task_id + ".trainings_and_predictions");
             for (auto &b: trainings_and_predictions)
                 uploader.write((uint8_t *) (&b), sizeof(float));

@@ -108,6 +108,23 @@ void LRBCache::sample() {
 }
 
 
+#ifdef EVICTION_LOGGING
+void LRBCache::update_stat_periodic() {
+    int64_t near_byte = 0, middle_byte = 0, far_byte = 0;
+    for (auto &i: in_cache_metas) {
+        if (i._future_timestamp == 0xffffffff) {
+            far_byte += i._size;
+        } else if (i._future_timestamp - current_t > belady_boundary) {
+            middle_byte += i._size;
+        } else {
+            near_byte += i._size;
+        }
+    }
+    near_bytes.emplace_back(near_byte);
+    middle_bytes.emplace_back(middle_byte);
+    far_bytes.emplace_back(far_byte);
+}
+#else
 void LRBCache::update_stat_periodic() {
     uint64_t feature_overhead = 0;
     uint64_t sample_overhead = 0;
@@ -155,6 +172,7 @@ void LRBCache::update_stat_periodic() {
             << "inference_time: " << inference_time << " us" << endl;
     assert(in_cache_metas.size() + out_cache_metas.size() == key_map.size());
 }
+#endif
 
 
 bool LRBCache::lookup(SimpleRequest &req) {
@@ -530,7 +548,7 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
                 uint32_t future_interval = future_timestamps.find(keys[i])->second - current_t;
                 future_interval = min(2 * memory_window, future_interval);
                 trainings_and_predictions.emplace_back(future_interval);
-                trainings_and_predictions.emplace_back(result[i]);
+                trainings_and_predictions.emplace_back(scores[i]);
                 trainings_and_predictions.emplace_back(current_t);
                 trainings_and_predictions.emplace_back(1);
                 trainings_and_predictions.emplace_back(keys[i]);

@@ -751,17 +751,20 @@ public:
         }));
         try {
             mongocxx::client client = mongocxx::client{mongocxx::uri(dburi)};
-            mongocxx::database db = client["webcachesim"];
+            auto db = client[mongocxx::uri(dburi).database()];
             auto bucket = db.gridfs_bucket();
 
             auto uploader = bucket.open_upload_stream(task_id + ".evictions");
+            cout << "evict1 num:" << eviction_qualities.size() << endl;
             for (auto &b: eviction_qualities)
                 uploader.write((uint8_t *) (&b), sizeof(uint8_t));
             uploader.close();
             uploader = bucket.open_upload_stream(task_id + ".eviction_timestamps");
+            cout << "evict2 num:" << eviction_logic_timestamps.size() << endl;
             for (auto &b: eviction_logic_timestamps)
                 uploader.write((uint8_t *) (&b), sizeof(uint16_t));
             uploader.close();
+            cout << "evict3 num:" << trainings_and_predictions.size() << endl;
             uploader = bucket.open_upload_stream(task_id + ".trainings_and_predictions");
             for (auto &b: trainings_and_predictions)
                 uploader.write((uint8_t *) (&b), sizeof(float));

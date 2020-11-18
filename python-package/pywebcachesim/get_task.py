@@ -87,7 +87,6 @@ def get_task(args):
                             'algorithm_param_file',
                             'trace_param_file',
                             'job_file',
-                            'debug',
                             'nodes',
                         ] and v is not None:
                             task[k] = v

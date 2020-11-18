@@ -12,6 +12,6 @@ Note [GNU parallel](https://www.gnu.org/software/parallel/) is used to running m
 * Set up the cache sizes to run. See [trace_params_lrb_window_search.yaml](config/trace_params_lrb_window_search.yaml) as an example
 * run scripts. After running the LRB with best memory window results will be stored in the mongodb instance in dev collection. 
 ```shell script
-python3 pywebcachesim/lrb_auto_search_memory_window.py --job_file config/job_lrb_window_search.yaml --algorithm_param_file config/algorithm_params_lrb_window_search.yaml --trace_param_file config/trace_params_lrb_window_search.yaml --dburi ${MONGODB URI}
+python3 pywebcachesim/lrb_window_search.py --job_file config/job_lrb_window_search.yaml --algorithm_param_file config/algorithm_params_lrb_window_search.yaml --trace_param_file config/trace_params_lrb_window_search.yaml --dburi ${MONGODB URI}
 ```
 

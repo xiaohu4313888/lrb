@@ -59,7 +59,6 @@ def get_cache_size_and_parameter_list(trace_file, cache_type, cache_size_or_size
             'authentication_file',
             'trace_param_file',
             'job_file',
-            'debug',
             'nodes',
             'n_iteration',
             'n_beam',
@@ -137,8 +136,6 @@ def main():
 
     for _ in range(args['n_iteration']):
         tasks = get_window_search_task(args)
-        if args["debug"]:
-            print(tasks)
         runner.run(args, tasks)
 
 

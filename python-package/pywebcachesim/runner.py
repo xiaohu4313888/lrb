@@ -1,5 +1,5 @@
-import time
 import subprocess
+import time
 
 
 def to_task_str(task: dict):
@@ -20,11 +20,7 @@ def to_task_str(task: dict):
     return task_id, res
 
 
-def run(args: dict, tasks: list):
-    # debug mode, only 1 task
-    if args["debug"]:
-        tasks = tasks[:1]
-
+def run(job_config: dict, tasks: list):
     ts = int(time.time())
     print(f'n_task: {len(tasks)}\n '
           f'generating job file to /tmp/{ts}.job')
@@ -38,8 +34,9 @@ def run(args: dict, tasks: list):
             f.write(task_str)
     with open(f'/tmp/{ts}.job') as f:
         command = ['parallel', '-v', '--eta', '--shuf', '--sshdelay', '0.1']
-        for n in args['nodes']:
+        for n in job_config['nodes']:
             command.extend(['-S', n])
+        print(f"{' '.join(command)} < /tmp/{ts}.job")
         subprocess.run(command,
                        stdin=f)
 

@@ -1,84 +1,25 @@
 * Recommend OS: Ubuntu 18
+* Install webcachesim library
 ```bash
-
-sudo apt-get update
-
-sudo apt install -y git cmake build-essential libboost-all-dev python3-pip parallel libprocps-dev
-
-# install openjdk 1.8. This is for simulating Adaptive-TinyLFU. The steps has to be one by one
-sudo add-apt-repository ppa:openjdk-r/ppa
-sudo apt-get update
-sudo apt-get install -y openjdk-8-jdk
-java -version  
-# should be 1.8
-
-
 git clone --recurse-submodules https://github.com/sunnyszy/lrb webcachesim
-
-# dependency can be optionally installed in non-default path using CMAKE_INSTALL_PREFIX CMAKE_PREFIX_PATH
 cd webcachesim
-
-# install LightGBM
-cd lib/LightGBM/build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j8
-sudo make install
-cd ../../..
-
-# dependency for mongo c driver
-sudo apt-get install -y cmake libssl-dev libsasl2-dev
-
-# installing mongo c
-cd lib/mongo-c-driver/cmake-build
-cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF ..
-make -j8
-sudo make install
-cd ../../..
-
-# installing mongo-cxx
-cd lib/mongo-cxx-driver/build
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
-sudo cmake --build . --target EP_mnmlstc_core
-make -j8
-sudo make install
-cd ../../..
-
-# installing libbf
-cd lib/libbf/build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j8
-sudo make install
-cd ../../..
-
-
-# building webcachesim, install the library with api
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j8
-sudo make install
-sudo ldconfig
-cd ..
-
+./script/install.sh
+# test
+./build/webcachesim_cli
+#output: webcachesim_cli traceFile cacheType cacheSize [--param=value]
+```
+* Set environment variables. Edit `~/.bashrc`:
+```bash
 # add binary and trace dir to path
 export PATH=$PATH:${YOUR webcachesim DIR}/build/bin
 export WEBCACHESIM_TRACE_DIR=${YOUR TRACE DIR}
 export WEBCACHESIM_ROOT=${YOUR webcachesim DIR}
-
-webcachesim_cli
-#output: webcachesim_cli traceFile cacheType cacheSize [--param=value] 
-
-# install modified emukit for memory window tuning
-cd lib/emukit
-pip3 install -e .
-cd ../..
-
-# install python framework
-pip3 install -e .
-
-
 ```
-* [Optional] Set up a mongodb instance. LRB uses this to store tuning results. 
+* [Optional] Set up a mongodb instance. LRB uses this to store tuning results.
 * [Optional] pywebcachesim is a python wrapper to run multiple simulation in parallel on multiple nodes.
 ```shell script
+cd python-package
+# Install pywebcachesim package
+pip3 install -e .
 python3 pywebcachesim/simulate.py --job_file ${YOUR JOB CONFIG FILE} --algorithm_param_file ${YOUR ALGORITHM PARAM FILE} --trace_param_file ${YOUR TRACE PARAM FILE} --dburi ${MONGODB URI}
 ```

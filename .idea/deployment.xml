@@ -1,19 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="fat2" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="fat2 (37b30de0-d9ec-4eb3-b094-4e368a8ab9a4)" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="d6515 (0579fad1-036d-460c-a30f-4de2e476c7a5)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/tmp/tmp.k3ulSMMMAB" local="$PROJECT_DIR$" />
-          </mappings>
-          <excludedPaths>
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-relwithdebinfo" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
-          </excludedPaths>
-        </serverdata>
-      </paths>
       <paths name="fat">
         <serverdata>
           <mappings>
@@ -24,19 +12,26 @@
       <paths name="fat2">
         <serverdata>
           <mappings>
-            <mapping deploy="/webcachesim_wrapper/webcachesim" local="$PROJECT_DIR$" />
+            <mapping deploy="/webcachesim" local="$PROJECT_DIR$" web="/" />
           </mappings>
           <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/lib/LightGBM" />
+            <excludedPath local="true" path="$PROJECT_DIR$/lib/mongo-c-driver" />
+            <excludedPath local="true" path="$PROJECT_DIR$/lib/mongo-cxx-driver" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+      <paths name="fat2 (37b30de0-d9ec-4eb3-b094-4e368a8ab9a4)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/webcachesim_remote" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/lib/mongo-c-driver" />
+            <excludedPath local="true" path="$PROJECT_DIR$/lib/LightGBM" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
             <excludedPath local="true" path="$PROJECT_DIR$/lib/mongo-cxx-driver" />
             <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-release" />
-            <excludedPath local="true" path="$PROJECT_DIR$/lib/mongo-c-driver" />
-            <excludedPath local="true" path="$PROJECT_DIR$/lib/emukit" />
-            <excludedPath local="true" path="$PROJECT_DIR$/pywebcachesim.egg-info" />
-            <excludedPath local="true" path="$PROJECT_DIR$/lib/libbf" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-relwithdebinfo" />
-            <excludedPath path="/data/zhenyus/webcachesim/trace" />
-            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
-            <excludedPath local="true" path="$PROJECT_DIR$/lib/LightGBM" />
           </excludedPaths>
         </serverdata>
       </paths>

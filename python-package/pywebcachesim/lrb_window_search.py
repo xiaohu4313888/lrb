@@ -1,4 +1,3 @@
-import logging
 import os
 import sys
 from copy import deepcopy
@@ -47,14 +46,18 @@ def get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, para
     # try each window
     tasks = []
     memory_windows = np.linspace(1, int(0.4 * n_dev), n_memory_window_search_per_cache_size + 1, dtype=int)[1:]
+    memory_windows_to_validate = []
     for memory_window in memory_windows:
         if len(df) == 0 or len(df[(df['cache_size'] == cache_size) & (df['memory_window'] == memory_window)]) == 0:
             # override n_early stop
             task = _get_task(trace_file, cache_type, cache_size, parameters, n_dev, memory_window)
             tasks.append(task)
+            memory_windows_to_validate.append(memory_window)
         else:
             # there should be unique config
             assert len(df[(df['cache_size'] == cache_size) & (df['memory_window'] == memory_window)]) == 1
+    print(f'For {trace_file}/size={cache_size}/{cache_type}, memory windows to calidate: {memory_windows_to_validate}',
+          file=sys.stderr)
     return tasks
 
 
@@ -130,7 +133,7 @@ def get_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters):
     if need_fitting is False:
         # if not need fitting, then select the window with smallest bmr
         memory_window = df[df['cache_size'] == cache_size]['memory_window'].iloc[0]
-        print(f'success find best memory window for cache size {cache_size}: {memory_window}')
+        print(f'success find best memory window for {trace_file} cache size {cache_size}: {memory_window}', file=sys.stderr)
         return []
     return get_fitting_task(trace_file, cache_type, cache_size, parameters)
 
@@ -157,21 +160,21 @@ def get_cache_size_and_parameter_list(trace_file, cache_type, cache_size_or_size
     if cache_type in algorithm_config:
         for k, v in algorithm_config[cache_type].items():
             if k == 'memory_window':
-                logging.warning(f'ignore config: {k}={v}')
+                print(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
             else:
                 parameters[k] = v
     # per trace
     for k, v in trace_config[trace_file].items():
         if k not in ['cache_sizes'] and k not in trace_config:
             if k in {'n_early_stop'}:
-                logging.warning(f'ignore config: {k}={v}')
+                print(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
             else:
                 parameters[k] = v
     # per trace per algorithm
     if cache_type in trace_config[trace_file]:
         for k, v in trace_config[trace_file][cache_type].items():
             if k == 'memory_window':
-                logging.warning(f'ignore config: {k}={v}')
+                print(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
             else:
                 parameters[k] = v
     # per trace per algorithm per cache size
@@ -183,7 +186,7 @@ def get_cache_size_and_parameter_list(trace_file, cache_type, cache_size_or_size
             # per cache size parameters overwrite other parameters
             for k, v in cache_size_or_size_parameters[cache_size][cache_type].items():
                 if k == 'memory_window':
-                    logging.warning(f'ignore config: {k}={v}')
+                    print(f'{trace_file} size={cache_size} {cache_type} ignore config: {k}={v}', file=sys.stderr)
                 else:
                     parameters[k] = v
     else:
@@ -218,19 +221,8 @@ def get_tasks():
     return tasks
 
 
-def set_logging():
-    root = logging.getLogger(os.path.basename(__file__))
-    root.setLevel(logging.INFO)
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
-
-
 def main():
     global job_config, algorithm_config, trace_config
-    set_logging()
     if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 6):
         raise Exception('Error: python version need to be at least 3.6')
     args = parser.parse_cmd_args_lrb_window_search()

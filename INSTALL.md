@@ -21,5 +21,6 @@ export WEBCACHESIM_ROOT=${YOUR webcachesim DIR}
 cd python-package
 # Install pywebcachesim package
 pip3 install -e .
-python3 pywebcachesim/simulate.py --job_file ${YOUR JOB CONFIG FILE} --algorithm_param_file ${YOUR ALGORITHM PARAM FILE} --trace_param_file ${YOUR TRACE PARAM FILE} --dburi ${MONGODB URI}
+python3 pywebcachesim/simulate.py ${YOUR JOB CONFIG FILE} ${YOUR ALGORITHM PARAM FILE} ${YOUR TRACE PARAM FILE} ${MONGODB URI}
+cd ..
 ```

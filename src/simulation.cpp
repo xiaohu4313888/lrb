@@ -193,9 +193,9 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
         update_metric_req(rt_byte_req, rt_obj_req, size)
 
         if (is_offline)
-            dynamic_cast<AnnotatedRequest *>(req)->reinit(id, size, seq, next_seq, &extra_features);
+            dynamic_cast<AnnotatedRequest *>(req)->reinit(seq, id, size, next_seq, &extra_features);
         else
-            req->reinit(id, size, seq, &extra_features);
+            req->reinit(seq, id, size, &extra_features);
 
         bool is_admitting = true;
         if (true == bloom_filter) {

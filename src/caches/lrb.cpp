@@ -79,28 +79,19 @@ void LRBCache::train() {
 
 void LRBCache::sample() {
     // start sampling once cache filled up
-    // the out_cache_metas may be empty because of LRU force eviction
-#ifdef LOG_SAMPLE_RATE
-    bool log_flag = ((double) rand() / (RAND_MAX)) < LOG_SAMPLE_RATE;
-#endif
     auto rand_idx = _distribution(_generator);
-    auto n_l0 = static_cast<uint32_t>(in_cache_metas.size());
-    auto n_l1 = static_cast<uint32_t>(out_cache_metas.size());
-    if (0 == n_l1) {
-        //can only sample l0
-        uint32_t pos = rand_idx % n_l0;
+    auto n_in = static_cast<uint32_t>(in_cache_metas.size());
+    auto n_out = static_cast<uint32_t>(out_cache_metas.size());
+    bernoulli_distribution distribution_from_in(static_cast<double>(n_in) / (n_in + n_out));
+    auto is_from_in = distribution_from_in(_generator);
+    if (is_from_in == true) {
+        uint32_t pos = rand_idx % n_in;
         auto &meta = in_cache_metas[pos];
         meta.emplace_sample(current_seq);
     } else {
-        if (rand() / (RAND_MAX + 1.) < static_cast<float>(n_l1) / (n_l0 + n_l1)) {
-            uint32_t pos = rand_idx % n_l0;
-            auto &meta = in_cache_metas[pos];
-            meta.emplace_sample(current_seq);
-        } else {
-            uint32_t pos = rand_idx % n_l1;
-            auto &meta = out_cache_metas[pos];
-            meta.emplace_sample(current_seq);
-        }
+        uint32_t pos = rand_idx % n_out;
+        auto &meta = out_cache_metas[pos];
+        meta.emplace_sample(current_seq);
     }
 }
 

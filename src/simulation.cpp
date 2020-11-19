@@ -85,14 +85,8 @@ FrameWork::FrameWork(const string &trace_file, const string &cache_type, const u
     //set cache_type related
     // create cache
     webcache = move(Cache::create_unique(cache_type));
-    if (webcache == nullptr) {
-        cerr << "cache type not implemented" << endl;
-        abort();
-    }
-
-    // configure cache size
+    if (webcache == nullptr) throw runtime_error("Error: cache type " + cache_type + " not implemented");
     webcache->setSize(cache_size);
-
     webcache->init_with_params(params);
 
     adjust_real_time_offset();
@@ -162,7 +156,7 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
 
     SimpleRequest *req;
     if (is_offline)
-        req = new AnnotatedRequest(0, 0, 0, 0);
+        req = new AnnotatedRequest(0, 0, 0, 0, 0);
     else
         req = new SimpleRequest(0, 0, 0);
     t_now = system_clock::now();
@@ -205,7 +199,7 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
 
         bool is_admitting = true;
         if (true == bloom_filter) {
-            bool exist_in_cache = webcache->exist(req->_id);
+            bool exist_in_cache = webcache->exist(req->id);
             //in cache object, not consider bloom_filter
             if (false == exist_in_cache) {
                 is_admitting = filter->exist_or_insert(id);
@@ -216,13 +210,11 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
             if (!is_hit) {
                 update_metric_req(byte_miss, obj_miss, size);
                 update_metric_req(rt_byte_miss, rt_obj_miss, size)
-                byte_miss_cache += size;
                 webcache->admit(*req);
             }
         } else {
             update_metric_req(byte_miss, obj_miss, size);
             update_metric_req(rt_byte_miss, rt_obj_miss, size)
-            byte_miss_filter += size;
         }
 
         ++seq;
@@ -245,8 +237,8 @@ bsoncxx::builder::basic::document FrameWork::simulation_results() {
                              accumulate<vector<int64_t>::const_iterator, double>(seg_byte_req.begin(),
                                                                                  seg_byte_req.end(), 0)
     ));
-    value_builder.append(kvp("byte_miss_cache", byte_miss_cache));
-    value_builder.append(kvp("byte_miss_filter", byte_miss_filter));
+//    value_builder.append(kvp("byte_miss_cache", byte_miss_cache));
+//    value_builder.append(kvp("byte_miss_filter", byte_miss_filter));
     value_builder.append(kvp("segment_byte_miss", [this](sub_array child) {
         for (const auto &element : seg_byte_miss)
             child.append(element);
@@ -296,6 +288,8 @@ bsoncxx::builder::basic::document FrameWork::simulation_results() {
     webcache->update_stat(value_builder);
     return value_builder;
 }
+
+
 
 bsoncxx::builder::basic::document _simulation(string trace_file, string cache_type, uint64_t cache_size,
                                               map<string, string> params) {

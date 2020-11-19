@@ -33,7 +33,7 @@ void LRCache::train() {
     training_loss = training_loss * 0.99 + (se / batch_size) * 0.01;
 }
 
-void LRCache::sample(uint64_t &t) {
+void LRCache::sample(const uint64_t &t) {
     // warmup not finish
     if (meta_holder[0].empty() || meta_holder[1].empty())
         return;
@@ -74,9 +74,9 @@ void LRCache::sample(uint64_t &t) {
     }
 }
 
-bool LRCache::lookup(SimpleRequest &req) {
+bool LRCache::lookup(const SimpleRequest &req) {
     bool ret;
-    if (!(req._t % 1000000)) {
+    if (!(req.seq % 1000000)) {
         cerr << "cache size: " << _currentSize << "/" << _cacheSize << endl;
         cerr << "n_metadata: " << key_map.size() << endl;
         assert(key_map.size() == forget_table.size());
@@ -89,13 +89,13 @@ bool LRCache::lookup(SimpleRequest &req) {
     }
 
     //first update the metadata: insert/update, which can trigger pending data.mature
-    auto it = key_map.find(req._id);
+    auto it = key_map.find(req.id);
     if (it != key_map.end()) {
         //update past timestamps
         bool &list_idx = it->second.first;
         uint32_t &pos_idx = it->second.second;
         LRMeta &meta = meta_holder[list_idx][pos_idx];
-        assert(meta._key == req._id);
+        assert(meta._key == req.id);
         uint8_t last_timestamp_idx = (meta._past_timestamp_idx - static_cast<uint8_t>(1)) % LR::max_n_past_timestamps;
         uint64_t last_timestamp = meta._past_timestamps[last_timestamp_idx];
         uint64_t forget_timestamp = last_timestamp + LR::forget_window;
@@ -106,9 +106,9 @@ bool LRCache::lookup(SimpleRequest &req) {
         auto pending_range = pending_training_data.equal_range(forget_timestamp);
         for (auto pending_it = pending_range.first; pending_it != pending_range.second;) {
             //mature
-            auto future_distance = log1p(req._t - pending_it->second.sample_time);
+            auto future_distance = log1p(req.seq - pending_it->second.sample_time);
             //don't use label within the first forget window because the data is not static
-            if (req._t > LR::forget_window)
+            if (req.seq > LR::forget_window)
                 training_data.emplace_back(pending_it->second, future_distance);
             //training
             if (training_data.size() == batch_size) {
@@ -119,25 +119,25 @@ bool LRCache::lookup(SimpleRequest &req) {
         }
         //remove this entry
         forget_table.erase(forget_it);
-        forget_table.insert({req._t + LR::forget_window, req._id});
+        forget_table.insert({req.seq + LR::forget_window, req.id});
         assert(key_map.size() == forget_table.size());
 
         //make this update after update training, otherwise the last timestamp will change
-        meta.update(req._t);
+        meta.update(req.seq);
         //update forget_table
         ret = !list_idx;
     } else {
         ret = false;
     }
 
-    forget(req._t);
+    forget(req.seq);
     //sampling
-    if (!(req._t % training_sample_interval))
-        sample(req._t);
+    if (!(req.seq % training_sample_interval))
+        sample(req.seq);
     return ret;
 }
 
-void LRCache::forget(uint64_t &t) {
+void LRCache::forget(const uint64_t &t) {
     //remove item from forget table, which is not going to be affect from update
     auto forget_it = forget_table.find(t);
     if (forget_it != forget_table.end()) {
@@ -195,21 +195,21 @@ void LRCache::forget(uint64_t &t) {
     }
 }
 
-void LRCache::admit(SimpleRequest &req) {
-    const uint64_t &size = req._size;
+void LRCache::admit(const SimpleRequest &req) {
+    const uint64_t &size = req.size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
 
-    auto it = key_map.find(req._id);
+    auto it = key_map.find(req.id);
     if (it == key_map.end()) {
         //fresh insert
-        key_map.insert({req._id, {0, (uint32_t) meta_holder[0].size()}});
-        meta_holder[0].emplace_back(req._id, req._size, req._t);
+        key_map.insert({req.id, {0, (uint32_t) meta_holder[0].size()}});
+        meta_holder[0].emplace_back(req.id, req.size, req.seq);
         _currentSize += size;
-        forget_table.insert({req._t + LR::forget_window, req._id});
+        forget_table.insert({req.seq + LR::forget_window, req.id});
         assert(key_map.size() == forget_table.size());
         if (_currentSize <= _cacheSize)
             return;
@@ -230,17 +230,17 @@ void LRCache::admit(SimpleRequest &req) {
         return;
     } else {
         //insert-evict
-        auto epair = rank(req._t);
+        auto epair = rank(req.seq);
         auto &key0 = epair.first;
         auto &pos0 = epair.second;
         auto &pos1 = it->second.second;
-        _currentSize = _currentSize - meta_holder[0][pos0]._size + req._size;
+        _currentSize = _currentSize - meta_holder[0][pos0]._size + req.size;
         swap(meta_holder[0][pos0], meta_holder[1][pos1]);
         swap(it->second, key_map.find(key0)->second);
     }
     // check more eviction needed?
     while (_currentSize > _cacheSize) {
-        evict(req._t);
+        evict(req.seq);
     }
 }
 

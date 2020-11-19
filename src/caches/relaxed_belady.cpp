@@ -8,26 +8,26 @@
 
 using namespace std;
 
-bool RelaxedBeladyCache::lookup(SimpleRequest &_req) {
-    auto &req = dynamic_cast<AnnotatedRequest &>(_req);
-    current_t = req._t;
-    auto it = key_map.find(req._id);
+bool RelaxedBeladyCache::lookup(const SimpleRequest &_req) {
+    auto &req = dynamic_cast<const AnnotatedRequest &>(_req);
+    current_t = req.seq;
+    auto it = key_map.find(req.id);
     if (it != key_map.end()) {
         //update past timestamps
         auto list_idx = it->second.first;
         if (within_boundary == list_idx) {
-            if (req._next_seq - current_t >= belady_boundary) {
+            if (req.next_seq - current_t >= belady_boundary) {
                 //TODO: should modify instead of insert
                 it->second = {beyond_boundary, beyond_boundary_meta.size()};
                 beyond_boundary_meta.emplace_back(req);
             } else {
-                within_boundary_meta.emplace(req._next_seq, pair(req._id, req._size));
+                within_boundary_meta.emplace(req.next_seq, pair(req.id, req.size));
             }
-            within_boundary_meta.erase(req._t);
+            within_boundary_meta.erase(req.seq);
         } else {
             auto pos = it->second.second;
             auto &meta = beyond_boundary_meta[pos];
-            assert(meta._key == req._id);
+            assert(meta._key == req.id);
             meta.update(req);
             if (meta._future_timestamp - current_t < belady_boundary) {
                 beyond_meta_remove_and_append(pos);
@@ -38,23 +38,23 @@ bool RelaxedBeladyCache::lookup(SimpleRequest &_req) {
     return false;
 }
 
-void RelaxedBeladyCache::admit(SimpleRequest &_req) {
-    AnnotatedRequest &req = static_cast<AnnotatedRequest &>(_req);
-    const uint64_t &size = req._size;
+void RelaxedBeladyCache::admit(const SimpleRequest &_req) {
+    auto &req = static_cast<const AnnotatedRequest &>(_req);
+    const uint64_t &size = req.size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
 
-    auto it = key_map.find(req._id);
+    auto it = key_map.find(req.id);
     if (it == key_map.end()) {
-        if (req._next_seq - req._t >= belady_boundary) {
-            key_map.insert({req._id, {beyond_boundary, beyond_boundary_meta.size()}});
+        if (req.next_seq - req.seq >= belady_boundary) {
+            key_map.insert({req.id, {beyond_boundary, beyond_boundary_meta.size()}});
             beyond_boundary_meta.emplace_back(req);
         } else {
-            key_map.insert({req._id, {within_boundary, 0}});
-            within_boundary_meta.emplace(req._next_seq, pair(req._id, req._size));
+            key_map.insert({req.id, {within_boundary, 0}});
+            within_boundary_meta.emplace(req.next_seq, pair(req.id, req.size));
         }
         _currentSize += size;
     }

@@ -28,13 +28,13 @@ void LHDBase::setSize(const uint64_t &cs) {
     lhdcache->availableCapacity = cs;
 }
 
-bool LHDBase::lookup(SimpleRequest& req)
+bool LHDBase::lookup(const SimpleRequest &req)
 {
-    const parser_competitors::Request preq {1, (int64_t)req.get_size(), (int64_t)req.get_id()};
+    const parser_competitors::Request preq {1, (int64_t)req.size, (int64_t)req.id};
     return(lhdcache->access(preq));
 }
 
-void LHDBase::admit(SimpleRequest& req)
+void LHDBase::admit(const SimpleRequest &req)
 {
     // nop
 }

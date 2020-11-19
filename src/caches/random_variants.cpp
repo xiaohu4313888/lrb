@@ -9,20 +9,20 @@
 using namespace std;
 
 
-bool RandomCache::lookup(SimpleRequest &req) {
-    return key_space.exist(req._id);
+bool RandomCache::lookup(const SimpleRequest &req) {
+    return key_space.exist(req.id);
 }
 
-void RandomCache::admit(SimpleRequest &req) {
-    const uint64_t & size = req._size;
+void RandomCache::admit(const SimpleRequest &req) {
+    const uint64_t & size = req.size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
     // admit new object
-    key_space.insert(req._id);
-    object_size.insert({req._id, req._size});
+    key_space.insert(req.id);
+    object_size.insert({req.id, req.size});
     _currentSize += size;
 
     // check eviction needed

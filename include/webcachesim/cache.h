@@ -33,13 +33,13 @@ namespace webcachesim {
         virtual ~Cache() = default;
 
         // main cache management functions (to be defined by a policy)
-        virtual bool lookup(SimpleRequest &req) = 0;
+        virtual bool lookup(const SimpleRequest &req) = 0;
         // check whether an object in a cache. Not update metadata
-        virtual bool exist(const KeyT & key) {
+        virtual bool exist(const int64_t &key) {
             throw runtime_error("Error: exist() function not implemented");
         }
 
-        virtual void admit(SimpleRequest &req) = 0;
+        virtual void admit(const SimpleRequest &req) = 0;
 
         // configure cache parameters
         virtual void setSize(const uint64_t &cs) {

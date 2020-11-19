@@ -37,9 +37,9 @@ public:
 
     void setSize(const uint64_t &cs) override;
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
     void evict();
 };

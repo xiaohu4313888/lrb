@@ -15,7 +15,7 @@ void ParallelFIFOCache::async_admit(const uint64_t &key, const int64_t &size,
         cache_map[key] = cache_list.begin();
         _currentSize += size;
         //slow to insert before local metadata, because in the future there will be additional fetch step
-        auto shard_id = key%n_shard;
+        auto shard_id = key % n_shard;
         size_map_mutex[shard_id].lock();
         size_map[shard_id].insert({key, size});
         size_map_mutex[shard_id].unlock();

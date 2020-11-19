@@ -54,9 +54,9 @@ public:
         }
     }
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
     void evict(const uint64_t &t);
     //sample, rank the 1st and return

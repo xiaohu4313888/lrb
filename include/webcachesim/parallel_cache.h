@@ -44,14 +44,14 @@ namespace webcachesim {
         shared_mutex size_map_mutex[n_shard];
 
 
-        bool lookup(SimpleRequest &req) override {
+        bool lookup(const SimpleRequest &req) override {
             //fixed size freelock queue will block on push when queue is full
-            return parallel_lookup(req._id);
+            return parallel_lookup(req.id);
         }
 
-        void admit(SimpleRequest &req) override {
-            int64_t size = req._size;
-            parallel_admit(req._id, size, req._extra_features.data());
+        void admit(const SimpleRequest &req) override {
+            int64_t size = req.size;
+            parallel_admit(req.id, size, req.extra_features.data());
         }
 
         //the cache receive these msgs to update the states, but not need to reply

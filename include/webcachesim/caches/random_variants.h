@@ -30,8 +30,8 @@ public:
     {
     }
 
-    virtual bool lookup(SimpleRequest& req);
-    virtual void admit(SimpleRequest& req);
+    virtual bool lookup(const SimpleRequest &req);
+    virtual void admit(const SimpleRequest &req);
 
     void evict();
 };

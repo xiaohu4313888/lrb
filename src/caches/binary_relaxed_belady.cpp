@@ -8,10 +8,10 @@
 using namespace std;
 
 
-bool BinaryRelaxedBeladyCache::lookup(SimpleRequest &_req) {
-    auto &req = dynamic_cast<AnnotatedRequest &>(_req);
-    current_t = req._t;
-    auto it = key_map.find(req._id);
+bool BinaryRelaxedBeladyCache::lookup(const SimpleRequest &_req) {
+    auto &req = dynamic_cast<const AnnotatedRequest &>(_req);
+    current_t = req.seq;
+    auto it = key_map.find(req.id);
     if (it != key_map.end()) {
         //update past timestamps
         auto list_idx = it->second.first;
@@ -34,22 +34,22 @@ bool BinaryRelaxedBeladyCache::lookup(SimpleRequest &_req) {
     return false;
 }
 
-void BinaryRelaxedBeladyCache::admit(SimpleRequest &_req) {
-    AnnotatedRequest &req = static_cast<AnnotatedRequest &>(_req);
-    const uint64_t &size = req._size;
+void BinaryRelaxedBeladyCache::admit(const SimpleRequest &_req) {
+    auto &req = static_cast<const AnnotatedRequest &>(_req);
+    const uint64_t &size = req.size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
 
-    auto it = key_map.find(req._id);
+    auto it = key_map.find(req.id);
     if (it == key_map.end()) {
-        if (req._next_seq - req._t >= belady_boundary) {
-            key_map.insert({req._id, {beyond_boundary, beyond_boundary_meta.size()}});
+        if (req.next_seq - req.seq >= belady_boundary) {
+            key_map.insert({req.id, {beyond_boundary, beyond_boundary_meta.size()}});
             beyond_boundary_meta.emplace_back(req);
         } else {
-            key_map.insert({req._id, {within_boundary, within_boundary_meta.size()}});
+            key_map.insert({req.id, {within_boundary, within_boundary_meta.size()}});
             within_boundary_meta.emplace_back(req);
         }
         _currentSize += size;

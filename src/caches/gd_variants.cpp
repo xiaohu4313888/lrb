@@ -12,23 +12,23 @@ using namespace std;
 /*
   GD: greedy dual eviction (base class)
 */
-bool GreedyDualBase::lookup(SimpleRequest& req)
+bool GreedyDualBase::lookup(const SimpleRequest &req)
 {
 
 #ifdef EVICTION_LOGGING
     {
         auto &_req = dynamic_cast<AnnotatedRequest &>(req);
-        current_t = req._t;
-        auto it = future_timestamps.find(req._id);
+        current_t = req.seq;
+        auto it = future_timestamps.find(req.id);
         if (it == future_timestamps.end()) {
-            future_timestamps.insert({_req._id, _req._next_seq});
+            future_timestamps.insert({_req.id, _req.next_seq});
         } else {
-            it->second = _req._next_seq;
+            it->second = _req.next_seq;
         }
     }
 #endif
 
-    uint64_t& obj = req._id;
+    auto & obj = req.id;
     auto it = _cacheMap.find(obj);
     if (it != _cacheMap.end()) {
         // log hit
@@ -39,7 +39,7 @@ bool GreedyDualBase::lookup(SimpleRequest& req)
     return false;
 }
 
-void GreedyDualBase::admit(SimpleRequest& req)
+void GreedyDualBase::admit(const SimpleRequest &req)
 {
 #ifdef CDEBUG
     {
@@ -53,13 +53,13 @@ void GreedyDualBase::admit(SimpleRequest& req)
     }
 #endif
 
-    const uint64_t size = req.get_size();
+    const auto size = req.size;
     // object feasible to store?
     if (size >= _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
-    uint64_t& obj = req._id;
+    auto & obj = req.id;
     _sizemap[obj] = size;
     // admit new object with new GF value
     long double ageVal = ageValue(req);
@@ -134,14 +134,14 @@ void GreedyDualBase::evict()
     }
 }
 
-long double GreedyDualBase::ageValue(SimpleRequest& req)
+long double GreedyDualBase::ageValue(const SimpleRequest& req)
 {
     return _currentL + 1.0;
 }
 
-void GreedyDualBase::hit(SimpleRequest& req)
+void GreedyDualBase::hit(const SimpleRequest& req)
 {
-    uint64_t& obj = req._id;
+    auto & obj = req.id;
     // get iterator for the old position
     auto it = _cacheMap.find(obj);
     assert(it != _cacheMap.end());
@@ -156,7 +156,7 @@ void GreedyDualBase::hit(SimpleRequest& req)
 ///*
 //  Greedy Dual Size policy
 //*/
-//long double GDSCache::ageValue(SimpleRequest* req)
+//long double GDSCache::ageValue(const SimpleRequest* req)
 //{
 //    const uint64_t size = req->getSize();
 //    return _currentL + 1.0 / static_cast<double>(size);
@@ -165,10 +165,10 @@ void GreedyDualBase::hit(SimpleRequest& req)
 /*
   Greedy Dual Size Frequency policy
 */
-bool GDSFCache::lookup(SimpleRequest& req)
+bool GDSFCache::lookup(const SimpleRequest& req)
 {
     bool hit = GreedyDualBase::lookup(req);
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     if (!hit) {
         _reqsMap[obj] = 1; //reset bec. reqs_map not updated when element removed
     } else {
@@ -177,9 +177,9 @@ bool GDSFCache::lookup(SimpleRequest& req)
     return hit;
 }
 
-long double GDSFCache::ageValue(SimpleRequest& req)
+long double GDSFCache::ageValue(const SimpleRequest& req)
 {
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     uint64_t & size = _sizemap[obj];
     assert(_sizemap.find(obj) != _sizemap.end());
     return _currentL + static_cast<double>(_reqsMap[obj]) / static_cast<double>(size);
@@ -196,8 +196,8 @@ LRUKCache::LRUKCache()
 }
 
 
-bool LRUKCache::lookup(SimpleRequest &req) {
-    uint64_t &obj = req._id;
+bool LRUKCache::lookup(const SimpleRequest& req) {
+    auto & obj = req.id;
     _curTime++;
     _refsMap[obj].push(_curTime);
     bool hit = GreedyDualBase::lookup(req);
@@ -206,7 +206,7 @@ bool LRUKCache::lookup(SimpleRequest &req) {
 
 //void LRUKCache::evict(SimpleRequest& req)
 //{
-//    uint64_t & obj = req._id;
+//    auto & obj = req.id;
 //    _refsMap.erase(obj); // delete LRU-K info
 //    GreedyDualBase::evict(req);
 //}
@@ -225,9 +225,9 @@ void LRUKCache::evict() {
     }
 }
 
-long double LRUKCache::ageValue(SimpleRequest& req)
+long double LRUKCache::ageValue(const SimpleRequest& req)
 {
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     long double newVal = 0.0L;
     if(_refsMap[obj].size() >= _tk) {
         newVal = _refsMap[obj].front();
@@ -240,10 +240,10 @@ long double LRUKCache::ageValue(SimpleRequest& req)
 /*
   LFUDA
 */
-bool LFUDACache::lookup(SimpleRequest& req)
+bool LFUDACache::lookup(const SimpleRequest& req)
 {
     bool hit = GreedyDualBase::lookup(req);
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     if (!hit) {
         _reqsMap[obj] = 1; //reset bec. reqs_map not updated when element removed
     } else {
@@ -252,19 +252,19 @@ bool LFUDACache::lookup(SimpleRequest& req)
     return hit;
 }
 
-long double LFUDACache::ageValue(SimpleRequest& req)
+long double LFUDACache::ageValue(const SimpleRequest& req)
 {
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     return _currentL + _reqsMap[obj];
 }
 
 /*
   LFU
 */
-bool LFUCache::lookup(SimpleRequest& req)
+bool LFUCache::lookup(const SimpleRequest& req)
 {
     bool hit = GreedyDualBase::lookup(req);
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     if (!hit) {
         _reqsMap[obj] = 1; //reset bec. reqs_map not updated when element removed
     } else {
@@ -273,9 +273,9 @@ bool LFUCache::lookup(SimpleRequest& req)
     return hit;
 }
 
-long double LFUCache::ageValue(SimpleRequest& req)
+long double LFUCache::ageValue(const SimpleRequest& req)
 {
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     return _reqsMap[obj];
 }
 

@@ -4,48 +4,48 @@
 
 #include "lecar.h"
 
-bool LeCaRCache::lookup(SimpleRequest& req)
+bool LeCaRCache::lookup(const SimpleRequest &req)
 {
 
 #ifdef EVICTION_LOGGING
     {
         auto &_req = dynamic_cast<AnnotatedRequest &>(req);
-        current_t = req._t;
-        auto it = future_timestamps.find(req._id);
+        current_t = req.seq;
+        auto it = future_timestamps.find(req.id);
         if (it == future_timestamps.end()) {
-            future_timestamps.insert({_req._id, _req._next_seq});
+            future_timestamps.insert({_req.id, _req.next_seq});
         } else {
-            it->second = _req._next_seq;
+            it->second = _req.next_seq;
         }
     }
 #endif
 
 
-    auto & key = req._id;
+    auto & key = req.id;
 
     auto it = size_map.find(key);
     if (it != size_map.end()) {
         auto it_recency = recency.right.find(key);
 //        cout<<(it_recency == recency.right.end())<<endl;
-        recency.right.replace_data(it_recency, req._t);
+        recency.right.replace_data(it_recency, req.seq);
         auto it_frequency = frequency.right.find(key);
         uint64_t f = it_frequency->second.first;
         uint64_t t = it_frequency->second.second;
         uint64_t k = it_frequency->first;
 //        cout<<(it_frequency == frequency.right.end())<<endl;
-        frequency.right.replace_data(it_frequency, make_pair(f+1, req._t));
+        frequency.right.replace_data(it_frequency, make_pair(f + 1, req.seq));
         return true;
     }
     return false;
 }
 
-void LeCaRCache::admit(SimpleRequest& req) {
-    auto & key = req._id;
-    auto & size = req._size;
-    auto & t = req._t;
+void LeCaRCache::admit(const SimpleRequest &req) {
+    auto & key = req.id;
+    auto & size = req.size;
+    auto & t = req.seq;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
 
@@ -92,7 +92,7 @@ void LeCaRCache::admit(SimpleRequest& req) {
     }
 }
 
-void LeCaRCache::evict(uint64_t & t, uint64_t & counter) {
+void LeCaRCache::evict(const uint64_t &t, uint64_t & counter) {
     double r = (double (rand())) / RAND_MAX;
     if (r < w[0]) {
         //lru policy

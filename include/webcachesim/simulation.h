@@ -31,7 +31,7 @@ public:
     //unit: second
     uint64_t real_time_segment_window = 600;
     uint n_extra_fields = 0;
-    bool is_metadata_in_cache_size = true;
+    bool is_metadata_in_cache_size = false;
     unique_ptr<Cache> webcache = nullptr;
     std::ifstream infile;
     int64_t n_early_stop = -1;  //-1: no stop
@@ -52,11 +52,12 @@ public:
 
     //=================================================================
     //simulation parameter
-    uint64_t t, id, size, next_seq;
+    int64_t t, id, size, usize, next_seq;
+    int same_chunk;
     //measure every segment
-    uint64_t byte_req = 0, byte_miss = 0, obj_req = 0, obj_miss = 0;
+    int64_t byte_req = 0, byte_miss = 0, obj_req = 0, obj_miss = 0;
     //rt: real_time
-    uint64_t rt_byte_req = 0, rt_byte_miss = 0, rt_obj_req = 0, rt_obj_miss = 0;
+    int64_t rt_byte_req = 0, rt_byte_miss = 0, rt_obj_req = 0, rt_obj_miss = 0;
     //global statistics
     std::vector<int64_t> seg_byte_req, seg_byte_miss, seg_object_req, seg_object_miss;
     std::vector<int64_t> seg_rss;
@@ -70,8 +71,8 @@ public:
     uint64_t seq = 0;
     std::chrono::system_clock::time_point t_now;
     //decompose miss
-    int64_t byte_miss_cache = 0;
-    int64_t byte_miss_filter = 0;
+//    int64_t byte_miss_cache = 0;
+//    int64_t byte_miss_filter = 0;
 
 
     FrameWork(const std::string &trace_file, const std::string &cache_type, const uint64_t &cache_size,

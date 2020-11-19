@@ -150,23 +150,23 @@ public:
         training_data.reserve(batch_size);
     }
 
-    bool lookup(SimpleRequest &req);
+    bool lookup(const SimpleRequest &req);
 
-    void admit(SimpleRequest &req);
+    void admit(const SimpleRequest &req);
 
     /*
      * rank and evict from cache
      */
     void evict(const uint64_t &t);
 
-    void forget(uint64_t &t);
+    void forget(const uint64_t &t);
 
     //sample, rank the 1st and return
     pair<uint64_t, uint32_t> rank(const uint64_t &t);
 
     void train();
 
-    void sample(uint64_t &t);
+    void sample(const uint64_t &t);
 };
 
 static Factory<LRCache> factoryLR("LR");

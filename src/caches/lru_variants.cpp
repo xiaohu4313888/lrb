@@ -22,18 +22,18 @@ static inline double oP2(double T, double l, double p) {
 /*
   LRU: Least Recently Used eviction
 */
-bool LRUCache::lookup(SimpleRequest& req)
+bool LRUCache::lookup(const SimpleRequest &req)
 {
 
 
 #ifdef EVICTION_LOGGING
     {
         auto &_req = dynamic_cast<AnnotatedRequest &>(req);
-        current_t = req._t;
+        current_t = req.seq;
 
-        if (_cacheMap.find(req._id) != _cacheMap.end()) {
+        if (_cacheMap.find(req.id) != _cacheMap.end()) {
             //hit
-            auto it = last_timestamps.find(req._id);
+            auto it = last_timestamps.find(req.id);
             unsigned int hit =
                     static_cast<double>(current_t - it->second) / (_cacheSize * 1e6 / byte_million_req);
             hit = min((unsigned int) 255, hit);
@@ -41,25 +41,25 @@ bool LRUCache::lookup(SimpleRequest& req)
             hit_timestamps.emplace_back(current_t / 65536);
         }
 
-        auto it = last_timestamps.find(req._id);
+        auto it = last_timestamps.find(req.id);
         if (it == last_timestamps.end()) {
-            last_timestamps.insert({_req._id, current_t});
+            last_timestamps.insert({_req.id, current_t});
         } else {
             it->second = current_t;
         }
 
 
-        it = future_timestamps.find(req._id);
+        it = future_timestamps.find(req.id);
         if (it == future_timestamps.end()) {
-            future_timestamps.insert({_req._id, _req._next_seq});
+            future_timestamps.insert({_req.id, _req.next_seq});
         } else {
-            it->second = _req._next_seq;
+            it->second = _req.next_seq;
         }
     }
 #endif
 
 
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     auto it = _cacheMap.find(obj);
     if (it != _cacheMap.end()) {
         // log hit
@@ -71,12 +71,12 @@ bool LRUCache::lookup(SimpleRequest& req)
     return false;
 }
 
-void LRUCache::admit(SimpleRequest& req)
+void LRUCache::admit(const SimpleRequest &req)
 {
-    const uint64_t size = req.get_size();
+    const uint64_t size = req.size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req._id, size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
     // check eviction needed
@@ -84,7 +84,7 @@ void LRUCache::admit(SimpleRequest& req)
         evict();
     }
     // admit new object
-    uint64_t & obj = req._id;
+    auto & obj = req.id;
     _cacheList.push_front(obj);
     _cacheMap[obj] = _cacheList.begin();
     _currentSize += size;
@@ -92,20 +92,19 @@ void LRUCache::admit(SimpleRequest& req)
     LOG("a", _currentSize, obj.id, obj.size);
 }
 
-bool InfCache::lookup(SimpleRequest& req)
+bool InfCache::lookup(const SimpleRequest &req)
 {
-    return _cacheMap.find(req._id) != _cacheMap.end();
+    return _cacheMap.find(req.id) != _cacheMap.end();
 }
 
-void InfCache::admit(SimpleRequest& req)
+void InfCache::admit(const SimpleRequest &req)
 {
     // admit new object
-    _cacheMap.insert(req._id);
+    _cacheMap.insert(req.id);
 }
 
-void LRUCache::evict(SimpleRequest& req)
+void LRUCache::evict(const int64_t& obj)
 {
-    uint64_t & obj = req._id;
     auto it = _cacheMap.find(obj);
     if (it != _cacheMap.end()) {
         ListIteratorType lit = it->second;
@@ -152,10 +151,9 @@ void LRUCache::hit(lruCacheMapType::const_iterator it, uint64_t size)
     _cacheList.splice(_cacheList.begin(), _cacheList, it->second);
 }
 
-const SimpleRequest & LRUCache::evict_return()
-{
+SimpleRequest LRUCache::evict_return() {
     // evict least popular (i.e. last element)
-    ListIteratorType lit = _cacheList.end();
+    auto lit = _cacheList.end();
     lit--;
     uint64_t obj = *lit;
     auto size = _size_map[obj];
@@ -168,7 +166,7 @@ const SimpleRequest & LRUCache::evict_return()
     return req;
 }
 
-bool LRUCache::exist(const KeyT &key) {
+bool LRUCache::exist(const int64_t &key) {
     return _cacheMap.find(key) != _cacheMap.end();
 }
 
@@ -200,14 +198,14 @@ void FIFOCache::hit(lruCacheMapType::const_iterator it, uint64_t size)
 //}
 //
 //
-//bool FilterCache::lookup(SimpleRequest& req)
+//bool FilterCache::lookup(const SimpleRequest& req)
 //{
 //    CacheObject obj(req);
 //    _filter[obj]++;
 //    return LRUCache::lookup(req);
 //}
 //
-//void FilterCache::admit(SimpleRequest& req)
+//void FilterCache::admit(const SimpleRequest& req)
 //{
 //    CacheObject obj(req);
 //    if (_filter[obj] <= _nParam) {
@@ -241,12 +239,12 @@ void AdaptSizeCache::setPar(std::string parName, std::string parValue) {
     }
 }
 
-bool AdaptSizeCache::lookup(SimpleRequest& req)
+bool AdaptSizeCache::lookup(const SimpleRequest &req)
 {
     reconfigure();
 
-    uint64_t tmpCacheObject0 = req._id;
-    auto size = req.get_size();
+    uint64_t tmpCacheObject0 = req.id;
+    auto size = req.size;
     if(_intervalMetadata.count(tmpCacheObject0)==0
        && _longTermMetadata.count(tmpCacheObject0)==0) {
         // new object
@@ -279,10 +277,10 @@ bool AdaptSizeCache::lookup(SimpleRequest& req)
     return LRUCache::lookup(req);
 }
 
-void AdaptSizeCache::admit(SimpleRequest& req)
+void AdaptSizeCache::admit(const SimpleRequest &req)
 {
     double roll = _uniform_real_distribution(globalGenerator);
-    double admitProb = std::exp(-1.0 * double(req._size)/_cParam);
+    double admitProb = std::exp(-1.0 * double(req.size)/_cParam);
 
     if(roll < admitProb)
         LRUCache::admit(req);
@@ -508,14 +506,14 @@ void S4LRUCache::setSize(const uint64_t &cs) {
     }
 }
 
-bool S4LRUCache::lookup(SimpleRequest& req)
+bool S4LRUCache::lookup(const SimpleRequest &req)
 {
     for(int i=0; i<4; i++) {
         if(segments[i].lookup(req)) {
             // hit
             if(i<3) {
                 // move up
-                segments[i].evict(req);
+                segments[i].evict(req.id);
                 segment_admit(i+1,req);
             }
             return true;
@@ -524,12 +522,12 @@ bool S4LRUCache::lookup(SimpleRequest& req)
     return false;
 }
 
-void S4LRUCache::admit(SimpleRequest& req)
+void S4LRUCache::admit(const SimpleRequest &req)
 {
     segments[0].admit(req);
 }
 
-void S4LRUCache::segment_admit(uint8_t idx, SimpleRequest& req)
+void S4LRUCache::segment_admit(uint8_t idx, const SimpleRequest& req)
 {
     if(idx==0) {
         segments[idx].admit(req);
@@ -548,7 +546,7 @@ void S4LRUCache::segment_admit(uint8_t idx, SimpleRequest& req)
 void S4LRUCache::evict(SimpleRequest& req)
 {
     for(int i=0; i<4; i++) {
-        segments[i].evict(req);
+        segments[i].evict(req.id);
     }
 }
 
@@ -566,18 +564,18 @@ ThLRUCache::ThLRUCache()
 {
 }
 
-void ThLRUCache::admit(SimpleRequest& req)
+void ThLRUCache::admit(const SimpleRequest &req)
 {
-    const uint64_t size = req.get_size();
+    const uint64_t size = req.size;
     // admit if size < threshold
     if (size < _sizeThreshold) {
         LRUCache::admit(req);
     }
 }
 
-void ThS4LRUCache::admit(SimpleRequest& req)
+void ThS4LRUCache::admit(const SimpleRequest &req)
 {
-    const uint64_t size = req.get_size();
+    const uint64_t size = req.size;
     // admit if size < threshold
     if (size < _sizeThreshold) {
         S4LRUCache::admit(req);
@@ -604,7 +602,7 @@ void ThS4LRUCache::admit(SimpleRequest& req)
 //
 //
 //
-//void ExpLRUCache::admit(SimpleRequest* req)
+//void ExpLRUCache::admit(const SimpleRequest* req)
 //{
 //    const double size = req->getSize();
 //    // admit to cache with probablity that is exponentially decreasing with size

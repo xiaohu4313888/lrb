@@ -4,8 +4,8 @@
 
 #include "hyperbolic.h"
 
-bool HyperbolicCache::lookup(SimpleRequest &req) {
-    auto it = key_map.find(req._id);
+bool HyperbolicCache::lookup(const SimpleRequest &req) {
+    auto it = key_map.find(req.id);
     if (it != key_map.end()) {
         //update past timestamps
         uint32_t & pos_idx = it->second;
@@ -15,7 +15,7 @@ bool HyperbolicCache::lookup(SimpleRequest &req) {
     return false;
 }
 
-void HyperbolicCache::admit(SimpleRequest &req) {
+void HyperbolicCache::admit(const SimpleRequest &req) {
     //cache state
 #ifdef CDEBUG
     {
@@ -29,21 +29,21 @@ void HyperbolicCache::admit(SimpleRequest &req) {
     }
 #endif
 
-    const uint64_t & size = req._size;
+    const uint64_t & size = req.size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
 
-    LOG("a", 0, _req._id, _req._size);
+    LOG("a", 0, _req.id, _req.size);
     //fresh insert
-    key_map.insert({req._id, (uint32_t) meta_holder.size()});
-    meta_holder.emplace_back(req._id, req._size, req._t);
+    key_map.insert({req.id, (uint32_t) meta_holder.size()});
+    meta_holder.emplace_back(req.id, req.size, req.seq);
     _currentSize += size;
     // check more eviction needed?
     while (_currentSize > _cacheSize) {
-        evict(req._t);
+        evict(req.seq);
     }
 #ifdef CDEBUG
     {

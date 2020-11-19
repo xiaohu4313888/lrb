@@ -104,16 +104,17 @@ public:
     {
     }
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    bool exist(const KeyT &key) override;
+    bool exist(const int64_t &key) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
-    void evict(SimpleRequest &req);
+    void evict(const int64_t &obj);
 
     void evict();
-    virtual const SimpleRequest & evict_return();
+
+    SimpleRequest evict_return();
 };
 
 static Factory<LRUCache> factoryLRU("LRU");
@@ -133,9 +134,9 @@ public:
     {
     }
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
     size_t memory_overhead() override {
         //the estimation of unordered_setq not very accurate
@@ -192,8 +193,8 @@ static Factory<FIFOCache> factoryFIFO("FIFO");
 //    }
 //
 //    virtual void setPar(std::string parName, std::string parValue);
-//    virtual bool lookup(SimpleRequest& req);
-//    virtual void admit(SimpleRequest& req);
+//    virtual bool lookup(const SimpleRequest& req);
+//    virtual void admit(const SimpleRequest& req);
 //};
 //
 //static Factory<FilterCache> factoryFilter("Filter");
@@ -210,8 +211,8 @@ public:
     }
 
     virtual void setPar(std::string parName, std::string parValue);
-    virtual bool lookup(SimpleRequest&);
-    virtual void admit(SimpleRequest&);
+    virtual bool lookup(const SimpleRequest &);
+    virtual void admit(const SimpleRequest &);
 
 private:
     double _cParam; //
@@ -270,11 +271,11 @@ public:
 
     void setSize(const uint64_t &cs) override;
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
-    void segment_admit(uint8_t idx, SimpleRequest &req);
+    void segment_admit(uint8_t idx, const SimpleRequest &req);
 
     void evict(SimpleRequest &req);
 
@@ -300,7 +301,7 @@ public:
             }
         }
     }
-    virtual void admit(SimpleRequest& req);
+    virtual void admit(const SimpleRequest &req);
 };
 
 static Factory<ThS4LRUCache> factoryThS4LRU("ThS4LRU");
@@ -334,7 +335,7 @@ public:
             }
         }
     }
-    virtual void admit(SimpleRequest& req);
+    virtual void admit(const SimpleRequest &req);
 };
 
 static Factory<ThLRUCache> factoryThLRU("ThLRU");
@@ -354,7 +355,7 @@ static Factory<ThLRUCache> factoryThLRU("ThLRU");
 //    }
 //
 //    virtual void setPar(std::string parName, std::string parValue);
-//    virtual void admit(SimpleRequest* req);
+//    virtual void admit(const SimpleRequest* req);
 //};
 //
 //static Factory<ExpLRUCache> factoryExpLRU("ExpLRU");

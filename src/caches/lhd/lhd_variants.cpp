@@ -25,16 +25,16 @@ void LHD::setSize(const uint64_t &cs) {
     lhdcache->availableCapacity = cs;
 }
 
-bool LHD::lookup(SimpleRequest& req)
+bool LHD::lookup(const SimpleRequest &req)
 {
     // fixme -> app id
-    //    const parser::PartialRequest preq {1, (int64_t)req.get_size(), (int64_t)req.get_id()};
+    //    const parser::PartialRequest preq {1, (int64_t)req.size, (int64_t)req.id};
     // pr.appId - 1
-    const parser::Request preq { 0., 1, parser::GET, 0, (int64_t)req.get_size(), (int64_t)req.get_id(), false };
+    const parser::Request preq { 0., 1, parser::GET, 0, (int64_t)req.size, (int64_t)req.id, false };
     return(lhdcache->access(preq));
 }
 
-void LHD::admit(SimpleRequest& req)
+void LHD::admit(const SimpleRequest &req)
 {
     // nop
 }

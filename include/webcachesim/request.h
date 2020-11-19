@@ -7,91 +7,57 @@
 
 using namespace std;
 
-typedef uint64_t KeyT;
-typedef uint64_t SizeT;
-
 // Request information
-class SimpleRequest
-{
+class SimpleRequest {
 public:
-    KeyT _id; // request object id
-    uint64_t _size; // request size in bytes
-    uint64_t _t;
+    SimpleRequest() = default;
+
+    virtual ~SimpleRequest() = default;
+
+    SimpleRequest(
+            const int64_t &_id,
+            const int64_t &_size) {
+        reinit(0, _id, _size);
+    }
+
+    SimpleRequest(const int64_t &_seq, const int64_t &_id, const int64_t &_size, const vector<uint16_t> *_extra_features = nullptr) {
+        reinit(_seq, _id, _size, _extra_features);
+    }
+
+    void reinit(const int64_t &_seq, const int64_t &_id, const int64_t &_size, const vector<uint16_t> *_extra_features = nullptr) {
+        seq = _seq;
+        id = _id;
+        size = _size;
+        if (_extra_features) {
+            extra_features = *_extra_features;
+        }
+    }
+
+    uint64_t seq{};
+    int64_t id{}; // request object id
+    int64_t size{}; // request size in bytes
     //category feature. unsigned int. ideally not exceed 2k
-    vector<uint16_t > _extra_features;
-
-    SimpleRequest()
-    {
-    }
-    virtual ~SimpleRequest()
-    {
-    }
-
-    // Create request
-    SimpleRequest(KeyT id, uint64_t size)
-        : _id(id), _size(size) {
-    }
-
-    SimpleRequest(KeyT id, uint64_t size, uint64_t t, vector<uint16_t> *extra_features = nullptr)
-        : _id(id), _size(size), _t(t) {
-        if (extra_features)
-            _extra_features = *extra_features;
-    };
-
-    inline void reinit(KeyT id, uint64_t size) {
-        _id = id;
-        _size = size;
-    }
-
-    inline void reinit(KeyT id, uint64_t size, uint64_t t, vector<uint16_t> *extra_features = nullptr) {
-        _id = id;
-        _size = size;
-        _t = t;
-        if (extra_features)
-            _extra_features = *extra_features;
-    }
-
-    // Print request to stdout
-    void print() const
-    {
-        std::cout << "id" << get_id() << " size " << get_size() << std::endl;
-    }
-
-    // Get request object id
-    inline KeyT get_id() const {
-        return _id;
-    }
-
-    // Get request size in bytes
-    inline uint64_t get_size() const {
-        return _size;
-    }
+    vector<uint16_t > extra_features;
 };
 
 
-class AnnotatedRequest: public SimpleRequest
-{
+class AnnotatedRequest : public SimpleRequest {
 public:
-    u_int64_t _next_seq;
+    AnnotatedRequest() = default;
 
     // Create request
-    AnnotatedRequest(KeyT id, uint64_t size, uint64_t t, uint64_t next_seq,
-                     vector<uint16_t >* extra_features = nullptr)
-            : SimpleRequest(id, size),
-              _next_seq(next_seq) {
-        _t = t;
-        if (extra_features)
-            _extra_features = *extra_features;
+    AnnotatedRequest(const int64_t &_seq, const int64_t &_id, const int64_t &_size, const int64_t &_next_seq,
+                     const vector<uint16_t> *_extra_features = nullptr)
+            : SimpleRequest(_seq, _id, _size, _extra_features),
+              next_seq(_next_seq) {}
+
+    void reinit(const int64_t &_seq, const int64_t &_id, const int64_t &_size, const int64_t &_next_seq,
+                       const vector<uint16_t> *_extra_features = nullptr) {
+        SimpleRequest::reinit(_seq, _id, _size, _extra_features);
+        next_seq = _next_seq;
     }
 
-    inline void reinit(KeyT id, uint64_t size, uint64_t t, uint64_t next_seq,
-                       vector<uint16_t >* extra_features = nullptr) {
-        SimpleRequest::reinit(id, size);
-        _t = t;
-        _next_seq = next_seq;
-        if (extra_features)
-            _extra_features = *extra_features;
-    }
+    int64_t next_seq{};
 };
 
 

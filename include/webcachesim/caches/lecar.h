@@ -96,10 +96,10 @@ public:
     }
 #endif
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
-    void evict(uint64_t & t, uint64_t & counter);
+    void admit(const SimpleRequest &req) override;
+    void evict(const uint64_t &t, uint64_t & counter);
     bool has(const uint64_t& id) {return size_map.find(id) != size_map.end();}
 };
 

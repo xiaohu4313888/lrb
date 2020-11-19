@@ -19,13 +19,11 @@ using namespace std;
 using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::sub_array;
 using namespace webcachesim;
-typedef uint64_t KeyT;
-typedef uint64_t SizeT;
 
 class BinaryRelaxedBeladyMeta {
 public:
-    KeyT _key;
-    SizeT _size;
+    int64_t _key;
+    int64_t _size;
     uint64_t _past_timestamp;
     uint64_t _future_timestamp;
 
@@ -38,10 +36,10 @@ public:
     }
 
     explicit BinaryRelaxedBeladyMeta(const AnnotatedRequest &req) {
-        _key = req._id;
-        _size = req._size;
-        _past_timestamp = req._t;
-        _future_timestamp = req._next_seq;
+        _key = req.id;
+        _size = req.size;
+        _past_timestamp = req.seq;
+        _future_timestamp = req.next_seq;
     }
 
     inline void update(const uint64_t &past_timestamp, const uint64_t &future_timestamp) {
@@ -50,8 +48,8 @@ public:
     }
 
     inline void update(const AnnotatedRequest &req) {
-        _past_timestamp = req._t;
-        _future_timestamp = req._next_seq;
+        _past_timestamp = req.seq;
+        _future_timestamp = req.next_seq;
     }
 };
 
@@ -62,7 +60,7 @@ public:
     enum MetaT : uint8_t {
         within_boundary = 0, beyond_boundary = 1
     };
-    unordered_map<KeyT, pair<MetaT, uint32_t >> key_map;
+    unordered_map<int64_t, pair<MetaT, uint32_t >> key_map;
     vector<BinaryRelaxedBeladyMeta> within_boundary_meta;
     vector<BinaryRelaxedBeladyMeta> beyond_boundary_meta;
 
@@ -138,9 +136,9 @@ public:
 
     pair<MetaT, uint32_t> rank();
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
     void evict();
 };

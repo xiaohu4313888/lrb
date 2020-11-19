@@ -22,8 +22,8 @@ using namespace webcachesim;
 
 class RelaxedBeladyMeta {
 public:
-    KeyT _key;
-    SizeT _size;
+    int64_t _key;
+    int64_t _size;
     uint64_t _past_timestamp;
     uint64_t _future_timestamp;
 
@@ -36,10 +36,10 @@ public:
     }
 
     explicit RelaxedBeladyMeta(const AnnotatedRequest &req) {
-        _key = req._id;
-        _size = req._size;
-        _past_timestamp = req._t;
-        _future_timestamp = req._next_seq;
+        _key = req.id;
+        _size = req.size;
+        _past_timestamp = req.seq;
+        _future_timestamp = req.next_seq;
     }
 
     inline void update(const uint64_t &past_timestamp, const uint64_t &future_timestamp) {
@@ -48,8 +48,8 @@ public:
     }
 
     inline void update(const AnnotatedRequest &req) {
-        _past_timestamp = req._t;
-        _future_timestamp = req._next_seq;
+        _past_timestamp = req.seq;
+        _future_timestamp = req.next_seq;
     }
 };
 
@@ -61,9 +61,9 @@ public:
         within_boundary = 0, beyond_boundary = 1
     };
     //key -> <metaT, pos>
-    unordered_map<KeyT, pair<MetaT, uint32_t >> key_map;
+    unordered_map<int64_t, pair<MetaT, uint32_t >> key_map;
     // list for recency order
-    multimap<uint64_t, pair<KeyT, SizeT>, greater<uint64_t >> within_boundary_meta;
+    multimap<uint64_t, pair<int64_t, int64_t>, greater<uint64_t >> within_boundary_meta;
     vector<RelaxedBeladyMeta> beyond_boundary_meta;
 
     uint64_t belady_boundary = 10000000;
@@ -182,9 +182,9 @@ public:
 
     pair<MetaT, uint32_t> rank();
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
     void evict();
 };

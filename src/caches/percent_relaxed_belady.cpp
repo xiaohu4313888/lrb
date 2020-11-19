@@ -9,34 +9,34 @@
 using namespace std;
 
 
-bool PercentRelaxedBeladyCache::lookup(SimpleRequest &_req) {
-    auto &req = dynamic_cast<AnnotatedRequest &>(_req);
-    current_t = req._t;
-    auto it = key_map.find(req._id);
+bool PercentRelaxedBeladyCache::lookup(const SimpleRequest &_req) {
+    auto &req = dynamic_cast<const AnnotatedRequest &>(_req);
+    current_t = req.seq;
+    auto it = key_map.find(req.id);
     if (it != key_map.end()) {
         //update past timestamps
         uint32_t &pos_idx = it->second;
-        meta_holder[pos_idx].update(req._t, req._next_seq);
+        meta_holder[pos_idx].update(req.seq, req.next_seq);
 
         return true;
     }
     return false;
 }
 
-void PercentRelaxedBeladyCache::admit(SimpleRequest &_req) {
-    AnnotatedRequest &req = static_cast<AnnotatedRequest &>(_req);
-    const uint64_t &size = req._size;
+void PercentRelaxedBeladyCache::admit(const SimpleRequest &_req) {
+    auto &req = static_cast<const AnnotatedRequest &>(_req);
+    const uint64_t &size = req.size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
 
-    auto it = key_map.find(req._id);
+    auto it = key_map.find(req.id);
     if (it == key_map.end()) {
         //fresh insert
-        key_map.insert({req._id, (uint32_t) meta_holder.size()});
-        meta_holder.emplace_back(req._id, req._size, req._t, req._next_seq);
+        key_map.insert({req.id, (uint32_t) meta_holder.size()});
+        meta_holder.emplace_back(req.id, req.size, req.seq, req.next_seq);
         _currentSize += size;
     }
     // check more eviction needed?

@@ -10,8 +10,8 @@ double upper_bound(int step, int num_plays) {
     return sqrt(2*log((step+1))/num_plays);
 }
 
-bool UCBCache::lookup(SimpleRequest &req) {
-    KeyT key = req._id;
+bool UCBCache::lookup(const SimpleRequest &req) {
+    int64_t key = req.id;
     ++t;
     //update plays
     auto it = mlcache_plays.find(key);
@@ -33,17 +33,17 @@ bool UCBCache::lookup(SimpleRequest &req) {
         return false;
 }
 
-void UCBCache::admit(SimpleRequest& req) {
+void UCBCache::admit(const SimpleRequest &req) {
 
-    const uint64_t size = req.get_size();
+    const uint64_t size = req.size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req.id, size);
         return;
     }
 
     // admit new object
-    KeyT key = req._id;
+    int64_t key = req.id;
     _currentSize += size;
     size_map[key] = size;
     double score = - upper_bound(t, mlcache_plays.find(key)->second);

@@ -28,9 +28,8 @@ using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::sub_array;
 
 namespace lrb {
-    typedef uint64_t KeyT;
-
-    uint32_t current_t = -1;
+    int64_t t_last_retrain = 0;
+    uint32_t current_seq = -1;
     uint8_t max_n_past_timestamps = 32;
     uint8_t max_n_past_distances = 31;
     uint8_t base_edc_window = 10;
@@ -186,7 +185,7 @@ public:
 class InCacheMeta : public Meta {
 public:
     //pointer to lru0
-    list<KeyT>::const_iterator p_last_request;
+    list<int64_t>::const_iterator p_last_request;
     //any change to functions?
 
 #ifdef EVICTION_LOGGING
@@ -204,13 +203,13 @@ public:
     InCacheMeta(const uint64_t &key,
                 const uint64_t &size,
                 const uint64_t &past_timestamp,
-                const vector<uint16_t> &extra_features, const list<KeyT>::const_iterator &it) :
+                const vector<uint16_t> &extra_features, const list<int64_t>::const_iterator &it) :
             Meta(key, size, past_timestamp, extra_features) {
         p_last_request = it;
     };
 #endif
 
-    InCacheMeta(const Meta &meta, const list<KeyT>::const_iterator &it) : Meta(meta) {
+    InCacheMeta(const Meta &meta, const list<int64_t>::const_iterator &it) : Meta(meta) {
         p_last_request = it;
     };
 
@@ -218,16 +217,16 @@ public:
 
 class InCacheLRUQueue {
 public:
-    list<KeyT> dq;
+    list<int64_t> dq;
 
     //size?
     //the hashtable (location information is maintained outside, and assume it is always correct)
-    list<KeyT>::const_iterator request(KeyT key) {
+    list<int64_t>::const_iterator request(int64_t key) {
         dq.emplace_front(key);
         return dq.cbegin();
     }
 
-    list<KeyT>::const_iterator re_request(list<KeyT>::const_iterator it) {
+    list<int64_t>::const_iterator re_request(list<int64_t>::const_iterator it) {
         if (it != dq.cbegin()) {
             dq.emplace_front(*it);
             dq.erase(it);
@@ -315,12 +314,12 @@ public:
 
 
 #ifdef EVICTION_LOGGING
-        if ((current_t >= n_logging_start) && !start_train_logging && (indptr.size() == 2)) {
+        if ((current_seq >= n_logging_start) && !start_train_logging && (indptr.size() == 2)) {
             start_train_logging = true;
         }
 
         if (start_train_logging) {
-//            training_and_prediction_logic_timestamps.emplace_back(current_t / 65536);
+//            training_and_prediction_logic_timestamps.emplace_back(current_seq / 65536);
             int i = indptr.size() - 2;
             int current_idx = indptr[i];
             for (int p = 0; p < n_feature; ++p) {
@@ -429,7 +428,7 @@ public:
 
 
         if (start_train_logging) {
-//            training_and_prediction_logic_timestamps.emplace_back(current_t / 65536);
+//            training_and_prediction_logic_timestamps.emplace_back(current_seq / 65536);
             int i = indptr.size() - 2;
             int current_idx = indptr[i];
             for (int p = 0; p < n_feature; ++p) {
@@ -637,9 +636,9 @@ public:
 #endif
     }
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
     void evict();
 
@@ -755,16 +754,13 @@ public:
             auto bucket = db.gridfs_bucket();
 
             auto uploader = bucket.open_upload_stream(task_id + ".evictions");
-            cout << "evict1 num:" << eviction_qualities.size() << endl;
             for (auto &b: eviction_qualities)
                 uploader.write((uint8_t *) (&b), sizeof(uint8_t));
             uploader.close();
             uploader = bucket.open_upload_stream(task_id + ".eviction_timestamps");
-            cout << "evict2 num:" << eviction_logic_timestamps.size() << endl;
             for (auto &b: eviction_logic_timestamps)
                 uploader.write((uint8_t *) (&b), sizeof(uint16_t));
             uploader.close();
-            cout << "evict3 num:" << trainings_and_predictions.size() << endl;
             uploader = bucket.open_upload_stream(task_id + ".trainings_and_predictions");
             for (auto &b: trainings_and_predictions)
                 uploader.write((uint8_t *) (&b), sizeof(float));

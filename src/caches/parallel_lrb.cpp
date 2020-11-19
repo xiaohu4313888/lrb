@@ -209,7 +209,7 @@ void ParallelLRBCache::async_admit(const uint64_t &key, const int64_t &size, con
     if (it == key_map.end()) {
         //fresh insert
         key_map.insert({key, KeyMapEntryT{.list_idx=0, .list_pos = (uint32_t) in_cache_metas.size()}});
-        auto shard_id = key%n_shard;
+        auto shard_id = key % n_shard;
         size_map_mutex[shard_id].lock();
         size_map[shard_id].insert({key, size});
         size_map_mutex[shard_id].unlock();

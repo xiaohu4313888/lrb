@@ -45,8 +45,8 @@ protected:
 #endif
 
 
-    virtual long double ageValue(SimpleRequest& req);
-    virtual void hit(SimpleRequest& req);
+    virtual long double ageValue(const SimpleRequest& req);
+    virtual void hit(const SimpleRequest& req);
     bool has(const uint64_t& id) {return _cacheMap.find(id) != _cacheMap.end();}
 
 public:
@@ -59,9 +59,9 @@ public:
     {
     }
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
-    void admit(SimpleRequest &req) override;
+    void admit(const SimpleRequest &req) override;
 
 //    void evict(SimpleRequest &req);
 //
@@ -76,7 +76,7 @@ static Factory<GreedyDualBase> factoryGD("GD");
 //class GDSCache : public GreedyDualBase
 //{
 //protected:
-//    virtual long double ageValue(SimpleRequest* req);
+//    virtual long double ageValue(const SimpleRequest* req);
 //
 //public:
 //    GDSCache()
@@ -98,7 +98,7 @@ class GDSFCache : public GreedyDualBase
 protected:
     CacheStatsMapType _reqsMap;
 
-    virtual long double ageValue(SimpleRequest& req);
+    virtual long double ageValue(const SimpleRequest& req);
 
 public:
     GDSFCache()
@@ -109,7 +109,7 @@ public:
     {
     }
 
-    virtual bool lookup(SimpleRequest& req);
+    virtual bool lookup(const SimpleRequest &req);
 };
 
 static Factory<GDSFCache> factoryGDSF("GDSF");
@@ -126,7 +126,7 @@ protected:
     unsigned int _tk;
     uint64_t _curTime;
 
-    long double ageValue(SimpleRequest &req) override;
+    long double ageValue(const SimpleRequest &req) override;
 
 public:
     LRUKCache();
@@ -174,7 +174,7 @@ public:
     }
 #endif
 
-    bool lookup(SimpleRequest &req) override;
+    bool lookup(const SimpleRequest &req) override;
 
 //    void evict(SimpleRequest &req) ;
 
@@ -191,7 +191,7 @@ class LFUDACache : public GreedyDualBase
 protected:
     CacheStatsMapType _reqsMap;
 
-    virtual long double ageValue(SimpleRequest& req);
+    virtual long double ageValue(const SimpleRequest& req);
 
 public:
     LFUDACache()
@@ -245,7 +245,7 @@ public:
     }
 #endif
 
-    virtual bool lookup(SimpleRequest& req);
+    virtual bool lookup(const SimpleRequest &req);
 };
 
 static Factory<LFUDACache> factoryLFUDA("LFUDA");
@@ -259,7 +259,7 @@ class LFUCache : public GreedyDualBase
 protected:
     CacheStatsMapType _reqsMap;
 
-    virtual long double ageValue(SimpleRequest& req);
+    virtual long double ageValue(const SimpleRequest& req);
 
 public:
     LFUCache()
@@ -270,7 +270,7 @@ public:
     {
     }
 
-    virtual bool lookup(SimpleRequest& req);
+    virtual bool lookup(const SimpleRequest &req);
 };
 
 static Factory<LFUCache> factoryLFU("LFU");

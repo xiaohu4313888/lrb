@@ -12,8 +12,6 @@
 #include <boost/bimap.hpp>
 #include <boost/bimap/multiset_of.hpp>
 
-typedef uint64_t KeyT;
-
 using namespace std;
 using namespace webcachesim;
 
@@ -21,8 +19,8 @@ class UCBCache : public Cache
 {
 public:
     // from id to intervals
-    boost::bimap<boost::bimaps::set_of<KeyT>, boost::bimaps::multiset_of<double , std::greater<double >>> mlcache_score;
-    std::unordered_map<KeyT, uint64_t> mlcache_plays;
+    boost::bimap<boost::bimaps::set_of<int64_t>, boost::bimaps::multiset_of<double , std::greater<double >>> mlcache_score;
+    std::unordered_map<int64_t, uint64_t> mlcache_plays;
     unordered_map<uint64_t, uint64_t> size_map;
     uint64_t t = 0;
 
@@ -34,8 +32,8 @@ public:
     {
     }
 
-    virtual bool lookup(SimpleRequest& req);
-    virtual void admit(SimpleRequest& req);
+    virtual bool lookup(const SimpleRequest &req);
+    virtual void admit(const SimpleRequest &req);
 
     void evict();
 };

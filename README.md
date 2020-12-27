@@ -29,7 +29,6 @@ Currently supported caching algorithms:
 * UCB
 * LHD
 * AdaptSize
-* LFO
 * Random (random eviction)
 
 Configuration parameters of these algorithms can be found in the config file [config/algorithm_params.yaml](config/algorithm_params.yaml)

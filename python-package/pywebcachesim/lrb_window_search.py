@@ -1,29 +1,18 @@
 import os
 import sys
 from copy import deepcopy
-
+import warnings
 import numpy as np
 import yaml
 from sklearn.linear_model import LinearRegression
-
-from pywebcachesim import parser, database, runner, get_task
+from . import parser, database, runner, get_task
+from loguru import logger
 
 # %%
 job_config = {}
 algorithm_config = {}
 trace_config = {}
 df = None
-
-
-def update_by_file(args, filename):
-    args_cp = deepcopy(args)
-    # job config file
-    with open(filename) as f:
-        file_params = yaml.load(f, Loader=yaml.FullLoader)
-    for k, v in file_params.items():
-        if args_cp.get(k) is None:
-            args_cp[k] = v
-    return args_cp
 
 
 def _get_task(trace_file, cache_type, cache_size, parameters, n_early_stop, memory_window):
@@ -45,7 +34,13 @@ def get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, para
     n_memory_window_search_per_cache_size = job_config['n_memory_window_search_per_cache_size']
     # try each window
     tasks = []
-    memory_windows = np.linspace(1, int(0.4 * n_dev), n_memory_window_search_per_cache_size + 1, dtype=int)[1:]
+    if 'byte_million_req' not in parameters:
+        warnings.warn("no byte_million_req info, estimate memory window lower bound as 4k")
+        memory_window_lower_bound = 4096
+    else:
+        n_req_one_cache_size = int(cache_size / parameters['byte_million_req'] * 1e6)
+        memory_window_lower_bound = n_req_one_cache_size
+    memory_windows = np.logspace(np.log10(memory_window_lower_bound), np.log10(0.4 * n_dev), n_memory_window_search_per_cache_size).astype(np.int64)
     memory_windows_to_validate = []
     for memory_window in memory_windows:
         if len(df) == 0 or len(df[(df['cache_size'] == cache_size) & (df['memory_window'] == memory_window)]) == 0:
@@ -56,7 +51,7 @@ def get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, para
         else:
             # there should be unique config
             assert len(df[(df['cache_size'] == cache_size) & (df['memory_window'] == memory_window)]) == 1
-    print(f'For {trace_file}/size={cache_size}/{cache_type}, memory windows to calidate: {memory_windows_to_validate}',
+    logger.info(f'For {trace_file}/size={cache_size}/{cache_type}, memory windows to validate: {memory_windows_to_validate}',
           file=sys.stderr)
     return tasks
 
@@ -96,7 +91,7 @@ def get_fitting_task(trace_file, cache_type, cache_size, parameters):
             return tasks
     reg = LinearRegression(fit_intercept=False).fit(np.array(xs).reshape(-1, 1), np.array(ys))
     memory_window = int(reg.predict([[cache_size]])[0])
-    print(f'success find best memory window for cache size {cache_size}: {memory_window}')
+    print(f'find best memory window for {trace_file} cache size {cache_size}: {memory_window}')
     return []
 
 
@@ -133,7 +128,7 @@ def get_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters):
     if need_fitting is False:
         # if not need fitting, then select the window with smallest bmr
         memory_window = df[df['cache_size'] == cache_size]['memory_window'].iloc[0]
-        print(f'success find best memory window for {trace_file} cache size {cache_size}: {memory_window}', file=sys.stderr)
+        print(f'find best memory window for {trace_file} cache size {cache_size}: {memory_window}')
         return []
     return get_fitting_task(trace_file, cache_type, cache_size, parameters)
 
@@ -160,21 +155,21 @@ def get_cache_size_and_parameter_list(trace_file, cache_type, cache_size_or_size
     if cache_type in algorithm_config:
         for k, v in algorithm_config[cache_type].items():
             if k == 'memory_window':
-                print(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
+                logger.info(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
             else:
                 parameters[k] = v
     # per trace
     for k, v in trace_config[trace_file].items():
         if k not in ['cache_sizes'] and k not in trace_config:
             if k in {'n_early_stop'}:
-                print(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
+                logger.info(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
             else:
                 parameters[k] = v
     # per trace per algorithm
     if cache_type in trace_config[trace_file]:
         for k, v in trace_config[trace_file][cache_type].items():
             if k == 'memory_window':
-                print(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
+                logger.info(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
             else:
                 parameters[k] = v
     # per trace per algorithm per cache size
@@ -186,7 +181,7 @@ def get_cache_size_and_parameter_list(trace_file, cache_type, cache_size_or_size
             # per cache size parameters overwrite other parameters
             for k, v in cache_size_or_size_parameters[cache_size][cache_type].items():
                 if k == 'memory_window':
-                    print(f'{trace_file} size={cache_size} {cache_type} ignore config: {k}={v}', file=sys.stderr)
+                    logger.info(f'{trace_file} size={cache_size} {cache_type} ignore config: {k}={v}', file=sys.stderr)
                 else:
                     parameters[k] = v
     else:

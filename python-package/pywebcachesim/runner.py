@@ -16,7 +16,7 @@ def to_task_str(task: dict):
     params['task_id'] = task_id
     params = [f'--{k}={v}'for k, v in params.items()]
     params = ' '.join(params)
-    res = f'webcachesim_cli {task["trace_file"]} {task["cache_type"]} {task["cache_size"]} {params}'
+    res = f'$WEBCACHESIM_ROOT/build/bin/webcachesim_cli {task["trace_file"]} {task["cache_type"]} {task["cache_size"]} {params}'
     return task_id, res
 
 

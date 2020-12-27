@@ -116,10 +116,21 @@ docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 wiki2
 # running sanity check on trace: /trace/wiki2018.tr
 # ...
 # pass sanity check
-# simulating
-# segment id: 0
+simulating
+
+## intermediate results will be printed on every million of requests
+seq: 1000000
+# current_cache_size/max_cache_size (% full) 
+cache size: 29196098273/1099511627776 (0.0265537)
+# time take to simulate this million of requests
+delta t: ...
+# byte miss ratio for this million of requests
+segment bmr: 0.786717
+# resident set size in byte
+rss: 60399616
+
 # ...
-# results will be print in json string. Byte miss and byte req are aggregated in segment_byte_req, segment_byte_miss.
+# Final results will be print in json string. Byte miss and byte req are aggregated in segment_byte_req, segment_byte_miss.
 # The default segment size is 1 million request. This allows to calculate final byte miss ratio with your warmup length.
 # LRB evaluation warmup length is in the NSDI paper.
 # Alternatively, check no_warmup_byte_miss_ratio for byte miss ratio without considering warmup.

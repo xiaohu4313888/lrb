@@ -35,11 +35,12 @@ Configuration parameters of these algorithms can be found in the config file [co
 
 The prototype implementation on top of Apache Traffic Server is available [here](https://github.com/sunnyszy/lrb-prototype).
 
-## Trace
-The Wikipedia trace [download link](http://lrb.cs.princeton.edu/wiki2018.tr.tar.gz). To uncomress:
+## Traces
+The Wikipedia trace used in the paper: [download link](http://lrb.cs.princeton.edu/wiki2018.tr.tar.gz). To uncomress:
 ```shell script
 tar -xzvf wiki2018.tr.tar.gz
 ```
+A newer version of Wikipedia trace is also available: [download link](http://lrb.cs.princeton.edu/wiki2019.tr.tar.gz).
 
 ## Trace Format
 Request traces are expected to be in a space-separated format with 3 columns and additionally columns for extra features.

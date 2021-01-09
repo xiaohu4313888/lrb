@@ -36,7 +36,7 @@ Configuration parameters of these algorithms can be found in the config file [co
 The prototype implementation on top of Apache Traffic Server is available [here](https://github.com/sunnyszy/lrb-prototype).
 
 ## Traces
-The Wikipedia trace used in the paper: [download link](http://lrb.cs.princeton.edu/wiki2018.tr.tar.gz). To uncomress:
+The Wikipedia trace used in the paper: [download link](http://lrb.cs.princeton.edu/wiki2018.tr.tar.gz). To uncompress:
 ```shell script
 tar -xzvf wiki2018.tr.tar.gz
 ```

@@ -20,19 +20,20 @@ ENV WEBCACHESIM_ROOT=/opt/webcachesim
 WORKDIR ${WEBCACHESIM_ROOT}
 
 RUN git clone https://github.com/sunnyszy/lrb . && \
-                       cd ${WEBCACHESIM_ROOT}/lib/LightGBM-eloiseh/build && \
+                       git submodule update --init --recursive && \
+                       cd ${WEBCACHESIM_ROOT}/lib/LightGBM/build && \
                        cmake -DCMAKE_BUILD_TYPE=Release .. && \
                        make -j8 && \
                        make install && \
-                       cd ${WEBCACHESIM_ROOT}/lib/mongo-c-driver-1.13.1/cmake-build/ && \
+                       cd ${WEBCACHESIM_ROOT}/lib/mongo-c-driver/cmake-build/ && \
                        cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF .. && \
                        make -j8 && \
                        make install && \
-                       cd ${WEBCACHESIM_ROOT}/lib/mongo-cxx-driver-r3.4.0/build && \
+                       cd ${WEBCACHESIM_ROOT}/lib/mongo-cxx-driver/build && \
                        cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
                        make -j8 && \
                        make install && \
-                       cd ${WEBCACHESIM_ROOT}/lib/libbf-dadd48e/build && \
+                       cd ${WEBCACHESIM_ROOT}/lib/libbf/build && \
                        cmake -DCMAKE_BUILD_TYPE=Release .. && \
                        make -j8 && \
                        make install && \

@@ -2,7 +2,7 @@
 set -e
 # assume current path is under webcachesim
 sudo apt-get update
-sudo apt install -y git cmake build-essential libboost-all-dev python3-pip parallel libprocps-dev
+sudo apt install -y git cmake build-essential libboost-all-dev python3-pip parallel libprocps-dev software-properties-common
 # install openjdk 1.8. This is for simulating Adaptive-TinyLFU. The steps has to be one by one
 sudo add-apt-repository ppa:openjdk-r/ppa -y
 sudo apt-get update
@@ -37,6 +37,7 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j
 sudo make install
 cd ../..
+cd ..
 # building webcachesim, install the library with api
 cd ./build
 cmake -DCMAKE_BUILD_TYPE=Release ..

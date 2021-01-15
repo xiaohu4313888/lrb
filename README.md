@@ -63,7 +63,7 @@ Simulator will run a sanity check on the trace when starting up.
 
 For ease of use, we also provide a docker image which contains the simulator. Our documentation assumes that you use this image. To run it:
 ```shell script
- docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 ${traceFile} ${cacheType} ${cacheSize} [--param=value]
+ docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim ${traceFile} ${cacheType} ${cacheSize} [--param=value]
 ```
 Alternatively, you may follow the [instruction](INSTALL.md) to manually install the simulator.
 
@@ -77,7 +77,7 @@ what(): Exception opening file /trace/wiki2018.tr
 ```
 Please verify the trace directory correctly mounted by running
 ```bash
-docker run -it --entrypoint /bin/bash -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 -c "ls /trace"
+docker run -it --entrypoint /bin/bash -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim -c "ls /trace"
 # You should be able to see wiki2018.tr listed
 ```
 
@@ -112,7 +112,7 @@ where
 
 ##### Running LRU on Wiki trace 1TB
 ```bash
-docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 wiki2018.tr LRU 1099511627776
+docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim wiki2018.tr LRU 1099511627776
 
 # running sanity check on trace: /trace/wiki2018.tr
 # ...
@@ -139,12 +139,12 @@ rss: 60399616
 
 ##### Running B-LRU on Wiki trace 1TB
 ```bash
-docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 wiki2018.tr LRU 1099511627776 --bloom_filter=1
+docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim wiki2018.tr LRU 1099511627776 --bloom_filter=1
 ```
 
 ##### Running LRB on Wiki trace 1TB
 ```bash
-docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim:v0.2 wiki2018.tr LRB 1099511627776 --memory_window=671088640
+docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim wiki2018.tr LRB 1099511627776 --memory_window=671088640
 ```
 LRB memory window for Wikipedia trace different cache sizes in the paper (based on first 20% validation prefix):
 

@@ -13,7 +13,7 @@ cd ./lib
 # install LightGBM
 cd ./LightGBM/build
 cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j
+make
 sudo make install
 cd ../..
 # dependency for mongo c driver
@@ -21,26 +21,26 @@ sudo apt-get install -y cmake libssl-dev libsasl2-dev
 # installing mongo c
 cd ./mongo-c-driver/cmake-build
 cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF ..
-make -j
+make
 sudo make install
 cd ../..
 # installing mongo-cxx
 cd ./mongo-cxx-driver/build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ..
 sudo make EP_mnmlstc_core
-make -j
+make
 sudo make install
 cd ../..
 # installing libbf
 cd ./libbf/build
 cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j
+make
 sudo make install
 cd ../..
 cd ..
 # building webcachesim, install the library with api
 cd ./build
 cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j
+make
 sudo ldconfig
 cd ../

@@ -3,7 +3,7 @@
 ```bash
 git clone --recurse-submodules https://github.com/sunnyszy/lrb webcachesim
 cd webcachesim
-./script/install.sh
+./scripts/install.sh
 # test
 ./build/webcachesim_cli
 #output: webcachesim_cli traceFile cacheType cacheSize [--param=value]

@@ -97,7 +97,7 @@ void LeCaRCache::evict(const uint64_t &t, uint64_t & counter) {
     if (r < w[0]) {
         //lru policy
         auto it = recency.left.begin();
-        auto & key = it->second;
+        auto key = it->second;
         auto it_size = size_map.find(key);
 //        cout<<(it_size == size_map.end())<<endl;
         auto & size = it_size->second;
@@ -149,7 +149,7 @@ void LeCaRCache::evict(const uint64_t &t, uint64_t & counter) {
     } else {
         //lfu policy
         auto it = frequency.left.begin();
-        auto & key = it->second;
+        auto key = it->second;
         auto it_size = size_map.find(key);
 //        cout<<(it_size == size_map.end())<<endl;
         auto & size = it_size->second;

@@ -1,11 +1,4 @@
-import os
-import re
-import sys
-import platform
-import subprocess
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
+from setuptools import setup
 
 setup(
     name='pywebcachesim',
@@ -15,15 +8,11 @@ setup(
     long_description='',
     install_requires=[
         'pyyaml',
-        'pygit2',
         'numpy',
         'pandas',
         'pymongo',
         'sklearn',
-        # 'arrow',
-        # 'seaborn',
-        # 'matplotlib',
-        # 'tqdm',
+        'loguru',
     ],
     zip_safe=False,
     packages=['pywebcachesim'],

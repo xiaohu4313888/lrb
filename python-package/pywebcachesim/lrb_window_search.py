@@ -1,10 +1,11 @@
+import numpy as np
 import sys
 import warnings
-import numpy as np
 import yaml
-from sklearn.linear_model import LinearRegression
-from . import parser, database, runner, get_task
 from loguru import logger
+from sklearn.linear_model import LinearRegression
+
+from . import parser, database, runner, get_task
 
 # %%
 job_config = {}
@@ -24,10 +25,8 @@ def _get_task(trace_file, cache_type, cache_size, parameters, n_early_stop, memo
     return task
 
 
-def get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters):
+def get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters, n_dev):
     global df
-    n_req = parameters['n_req']
-    n_dev = int(n_req * job_config['ratio_dev'])
     n_memory_window_search_per_cache_size = job_config['n_memory_window_search_per_cache_size']
     # try each window
     tasks = []
@@ -68,14 +67,14 @@ def check_need_fitting(cache_size):
         return False
 
 
-def get_fitting_task(trace_file, cache_type, cache_size, parameters):
+def get_fitting_task(trace_file, cache_type, cache_size, parameters, n_dev):
     global df
     n_fitting_points = job_config['n_fitting_cache_size']
     current_cache_size = cache_size // 2
     xs = []
     ys = []
     while len(xs) != n_fitting_points:
-        tasks = get_validation_tasks_per_cache_size(trace_file, cache_type, current_cache_size, parameters)
+        tasks = get_validation_tasks_per_cache_size(trace_file, cache_type, current_cache_size, parameters, n_dev)
         if len(tasks) == 0:
             need_fitting = check_need_fitting(current_cache_size)
             if need_fitting == False:
@@ -96,7 +95,8 @@ def get_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters):
     global df
     # do a db read for dev tasks
     n_req = parameters['n_req']
-    n_dev = int(n_req * job_config['ratio_dev'])
+    n_dev = int(n_req * job_config['ratio_dev']) if parameters['n_early_stop'] == -1 else int(
+        parameters['n_early_stop'] * job_config['ratio_dev'])
     n_warmup = int(0.8 * n_dev)
     db_keys = {}
     for k, v in parameters.items():
@@ -118,7 +118,7 @@ def get_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters):
         dbcollection=parameters["dbcollection"],
         **db_keys
     )
-    tasks = get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters)
+    tasks = get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters, n_dev)
     if len(tasks) != 0:
         return tasks
     need_fitting = check_need_fitting(cache_size)
@@ -127,7 +127,7 @@ def get_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters):
         memory_window = df[df['cache_size'] == cache_size]['memory_window'].iloc[0]
         print(f'find best memory window for {trace_file} cache size {cache_size}: {memory_window}')
         return []
-    return get_fitting_task(trace_file, cache_type, cache_size, parameters)
+    return get_fitting_task(trace_file, cache_type, cache_size, parameters, n_dev)
 
 
 def get_cache_size_and_parameter_list(trace_file, cache_type, cache_size_or_size_parameters):
@@ -158,10 +158,7 @@ def get_cache_size_and_parameter_list(trace_file, cache_type, cache_size_or_size
     # per trace
     for k, v in trace_config[trace_file].items():
         if k not in ['cache_sizes'] and k not in trace_config:
-            if k in {'n_early_stop'}:
-                logger.info(f'{trace_file} {cache_type} ignore config: {k}={v}', file=sys.stderr)
-            else:
-                parameters[k] = v
+            parameters[k] = v
     # per trace per algorithm
     if cache_type in trace_config[trace_file]:
         for k, v in trace_config[trace_file][cache_type].items():
@@ -206,7 +203,6 @@ def get_tasks():
                     # user cannot specify the memory_window parameter, the program need to compute it
                     assert 'memory_window' not in parameters
                     _tasks = get_tasks_per_cache_size(trace_file, cache_type, cache_size, parameters)
-                    # for tuning task, ignore n_early_stop, for eval task, use n_early_stop
                     tasks.extend(_tasks)
     # deduplicate tasks
     tasks = [dict(t) for t in {tuple(d.items()) for d in tasks}]

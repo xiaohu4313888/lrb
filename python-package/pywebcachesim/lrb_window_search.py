@@ -1,6 +1,7 @@
-import numpy as np
 import sys
 import warnings
+
+import numpy as np
 import yaml
 from loguru import logger
 from sklearn.linear_model import LinearRegression
@@ -34,7 +35,7 @@ def get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, para
         warnings.warn("no byte_million_req info, estimate memory window lower bound as 4k")
         memory_window_lower_bound = 4096
     else:
-        if parameters['uni_size'] == 1:
+        if 'uni_size' in parameters and parameters['uni_size'] == 1:
             byte_million_req = 1000000
         else:
             byte_million_req = parameters['byte_million_req']

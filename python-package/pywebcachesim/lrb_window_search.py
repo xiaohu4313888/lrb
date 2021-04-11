@@ -34,7 +34,11 @@ def get_validation_tasks_per_cache_size(trace_file, cache_type, cache_size, para
         warnings.warn("no byte_million_req info, estimate memory window lower bound as 4k")
         memory_window_lower_bound = 4096
     else:
-        n_req_one_cache_size = int(cache_size / parameters['byte_million_req'] * 1e6)
+        if parameters['uni_size'] == 1:
+            byte_million_req = 1000000
+        else:
+            byte_million_req = parameters['byte_million_req']
+        n_req_one_cache_size = int(cache_size / byte_million_req * 1e6)
         memory_window_lower_bound = n_req_one_cache_size
     memory_windows = np.logspace(np.log10(memory_window_lower_bound), np.log10(0.4 * n_dev), n_memory_window_search_per_cache_size).astype(np.int64)
     memory_windows_to_validate = []

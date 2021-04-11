@@ -13,7 +13,7 @@ def get_parser():
 
 def get_lrb_window_search_parser():
     parser = get_parser()
-    parser.add_argument('--n_memory_window_search_per_cache_size', type=int, default=30,
+    parser.add_argument('--n_memory_window_search_per_cache_size', type=int, default=16,
                         help='for each cache search, how many different memory windows to search')
     parser.add_argument('--n_fitting_cache_size', type=int, default=2,
                         help='if the cache size is too large to directly estimate memory window, how many smaller '

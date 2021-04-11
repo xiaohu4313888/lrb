@@ -1,6 +1,4 @@
-import os
 import sys
-from copy import deepcopy
 import warnings
 import numpy as np
 import yaml
@@ -12,7 +10,6 @@ from loguru import logger
 job_config = {}
 algorithm_config = {}
 trace_config = {}
-df = None
 
 
 def _get_task(trace_file, cache_type, cache_size, parameters, n_early_stop, memory_window):

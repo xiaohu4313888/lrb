@@ -156,7 +156,7 @@ LRB memory window for Wikipedia trace different cache sizes in the paper (based 
 |   512  |  335544320  |
 |   1024  |  671088640 |
 
-## Automatically tuning LRB memory window on a new trace
+## Automatically tune LRB memory window on a new trace
 [LRB_WINDOW_TUNING.md](LRB_WINDOW_TUNING.md) describes how to tune LRB memory window on a new trace.
 
 ## Contributors are welcome

@@ -61,7 +61,7 @@ Simulator will run a sanity check on the trace when starting up.
 
 ## Installation
 
-For ease of use, we also provide a docker image which contains the simulator. Our documentation assumes that you use this image. To run it:
+For ease of use, we provide a docker image which contains the simulator. Our documentation assumes that you use this image. To run it:
 ```shell script
  docker run -it -v ${YOUR TRACE DIRECTORY}:/trace sunnyszy/webcachesim ${traceFile} ${cacheType} ${cacheSize} [--param=value]
 ```

@@ -23,6 +23,8 @@ LHD::LHD()
 void LHD::setSize(const uint64_t &cs) {
     _cacheSize = cs;
     lhdcache->availableCapacity = cs;
+    dynamic_cast<repl::LHD *>(lhdcache->repl)->explorerBudget =
+            lhdcache->availableCapacity * repl::LHD::EXPLORER_BUDGET_FRACTION;
 }
 
 bool LHD::lookup(const SimpleRequest &req)

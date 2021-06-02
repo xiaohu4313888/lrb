@@ -76,7 +76,9 @@ class LHD : public virtual Policy {
     // space allocated to objects that aren't evicted. 1% seems to be
     // a good value that has limited impact on hit ratio while quickly
     // discovering the shape of the access pattern.
+public:
     static constexpr rank_t EXPLORER_BUDGET_FRACTION = 0.01;
+private:
     static constexpr uint32_t EXPLORE_INVERSE_PROBABILITY = 32;
 
     // these parameters determine how aggressively to classify objects.
@@ -84,7 +86,7 @@ class LHD : public virtual Policy {
     static constexpr uint32_t HIT_AGE_CLASSES = 16;
     static constexpr uint32_t APP_CLASSES = 16;
     static constexpr uint32_t NUM_CLASSES = HIT_AGE_CLASSES * APP_CLASSES;
-    
+
     // these parameters are tuned for simulation performance, and hit
     // ratio is insensitive to them at reasonable values (like these)
     static constexpr rank_t AGE_COARSENING_ERROR_TOLERANCE = 0.01;
@@ -128,8 +130,9 @@ class LHD : public virtual Policy {
     int recentlyAdmittedHead = 0;
     rank_t ewmaVictimHitDensity = 0;
 
+public:
     int64_t explorerBudget = 0;
-    
+private:
     // METHODS /////////////////////////////
 
     // returns something like log(maxAge - age)

@@ -6,7 +6,6 @@
 #include <algorithm>
 #include "utils.h"
 #include <chrono>
-
 using namespace chrono;
 using namespace std;
 using namespace lrb;
@@ -14,8 +13,7 @@ using namespace lrb;
 void LRBCache::train() {
     ++n_retrain;
     auto timeBegin = chrono::system_clock::now();
-    if (booster)
-        LGBM_BoosterFree(booster);
+    if (booster) LGBM_BoosterFree(booster);
     // create training dataset
     DatasetHandle trainData;
     LGBM_DatasetCreateFromCSR(
@@ -46,6 +44,19 @@ void LRBCache::train() {
         if (isFinished) {
             break;
         }
+    /*std::ofstream out( "predict.txt", std::ios::app);
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*******************************************************************************************************************************" << "\n";
+    out << "*****************************************************train is here**************************************************************" << "\n";
+
+    out.close();*/
     }
 
     int64_t len;
@@ -66,8 +77,6 @@ void LRBCache::train() {
                               result.data());
 
 
-
-
     double se = 0;
     for (int i = 0; i < result.size(); ++i) {
         auto diff = result[i] - training_data->labels[i];
@@ -82,60 +91,34 @@ void LRBCache::train() {
 
 void LRBCache::sample() {
     // start sampling once cache filled up
-    // the out_cache_metas may be empty because of LRU force eviction
-#ifdef LOG_SAMPLE_RATE
-    bool log_flag = ((double) rand() / (RAND_MAX)) < LOG_SAMPLE_RATE;
-#endif
     auto rand_idx = _distribution(_generator);
-    auto n_l0 = static_cast<uint32_t>(in_cache_metas.size());
-    auto n_l1 = static_cast<uint32_t>(out_cache_metas.size());
-    if (0 == n_l1) {
-        //can only sample l0
-        uint32_t pos = rand_idx % n_l0;
+    auto n_in = static_cast<uint32_t>(in_cache_metas.size());
+    auto n_out = static_cast<uint32_t>(out_cache_metas.size());
+    bernoulli_distribution distribution_from_in(static_cast<double>(n_in) / (n_in + n_out));
+    auto is_from_in = distribution_from_in(_generator);
+    if (is_from_in == true) {
+        uint32_t pos = rand_idx % n_in;
         auto &meta = in_cache_metas[pos];
-        meta.emplace_sample(current_t);
+        meta.emplace_sample(current_seq);
     } else {
-        if (rand() / (RAND_MAX + 1.) < static_cast<float>(n_l1) / (n_l0 + n_l1)) {
-            uint32_t pos = rand_idx % n_l0;
-            auto &meta = in_cache_metas[pos];
-            meta.emplace_sample(current_t);
-        } else {
-            uint32_t pos = rand_idx % n_l1;
-            auto &meta = out_cache_metas[pos];
-            meta.emplace_sample(current_t);
-        }
+        uint32_t pos = rand_idx % n_out;
+        auto &meta = out_cache_metas[pos];
+        meta.emplace_sample(current_seq);
     }
 }
 
 
-#ifdef EVICTION_LOGGING
 void LRBCache::update_stat_periodic() {
-    int64_t near_byte = 0, middle_byte = 0, far_byte = 0;
-    for (auto &i: in_cache_metas) {
-        if (i._future_timestamp == 0xffffffff) {
-            far_byte += i._size;
-        } else if (i._future_timestamp - current_t > belady_boundary) {
-            middle_byte += i._size;
-        } else {
-            near_byte += i._size;
-        }
-    }
-    near_bytes.emplace_back(near_byte);
-    middle_bytes.emplace_back(middle_byte);
-    far_bytes.emplace_back(far_byte);
-}
-#else
-void LRBCache::update_stat_periodic() {
-    uint64_t feature_overhead = 0;
-    uint64_t sample_overhead = 0;
-    for (auto &m: in_cache_metas) {
-        feature_overhead += m.feature_overhead();
-        sample_overhead += m.sample_overhead();
-    }
-    for (auto &m: out_cache_metas) {
-        feature_overhead += m.feature_overhead();
-        sample_overhead += m.sample_overhead();
-    }
+//    uint64_t feature_overhead = 0;
+//    uint64_t sample_overhead = 0;
+//    for (auto &m: in_cache_metas) {
+//        feature_overhead += m.feature_overhead();
+//        sample_overhead += m.sample_overhead();
+//    }
+//    for (auto &m: out_cache_metas) {
+//        feature_overhead += m.feature_overhead();
+//        sample_overhead += m.sample_overhead();
+//    }
     float percent_beyond;
     if (0 == obj_distribution[0] && 0 == obj_distribution[1]) {
         percent_beyond = 0;
@@ -162,23 +145,40 @@ void LRBCache::update_stat_periodic() {
             << "in/out metadata: " << in_cache_metas.size() << " / " << out_cache_metas.size() << endl
             //    cerr << "feature overhead: "<<feature_overhead<<endl;
             << "memory_window: " << memory_window << endl
-            << "percent_beyond: " << percent_beyond << endl
-            << "feature overhead per entry: " << feature_overhead / key_map.size() << endl
+//            << "percent_beyond: " << percent_beyond << endl
+//            << "feature overhead per entry: " << static_cast<double>(feature_overhead) / key_map.size() << endl
             //    cerr << "sample overhead: "<<sample_overhead<<endl;
-            << "sample overhead per entry: " << sample_overhead / key_map.size() << endl
+//            << "sample overhead per entry: " << static_cast<double>(sample_overhead) / key_map.size() << endl
             << "n_training: " << training_data->labels.size() << endl
             //            << "training loss: " << training_loss << endl
             << "training_time: " << training_time << " ms" << endl
             << "inference_time: " << inference_time << " us" << endl;
     assert(in_cache_metas.size() + out_cache_metas.size() == key_map.size());
 }
-#endif
 
 
 bool LRBCache::lookup(SimpleRequest &req) {
-    bool ret;
-    ++current_t;
 
+    bool ret;
+    ++current_seq;
+    bool flag=false;
+    int j =0;
+    for(;j<ac.size();j++){
+        if(ac[j]==req._id) {
+            flag=true;
+            break;
+        }
+    }
+    if(flag==true)//有的情况下与队尾元素互换
+    {
+        for(;j<ac.size()-1;j++) ac[j]=ac[j+1];
+        ac[ac.size()-1]=req._id;
+    }else{
+        while(ac.size()>=50){
+            ac.pop_back();
+        }
+        ac.emplace_back(req._id);
+    }
 #ifdef EVICTION_LOGGING
     {
         AnnotatedRequest *_req = (AnnotatedRequest *) &req;
@@ -191,10 +191,22 @@ bool LRBCache::lookup(SimpleRequest &req) {
     }
 #endif
     forget();
-
+    /*if(current_seq>=200000&&current_seq%50==0&&current_seq<220000){//算50个结果
+        predict_all();
+        real_all();
+    }
+    if(current_seq==220000){
+        int sum = 0;
+        for(int q=0;q<change.size();q++){
+            sum+=change[q];
+            cout<<change[q]<<endl;
+        }
+        std::cerr<<sum/change.size()<<endl;
+        getchar();
+    }*/
     //first update the metadata: insert/update, which can trigger pending data.mature
     auto it = key_map.find(req._id);
-    if (it != key_map.end()) {
+    if (it != key_map.end()) {//所有window窗内request能在key map中找到
         auto list_idx = it->second.list_idx;
         auto list_pos = it->second.list_pos;
         Meta &meta = list_idx ? out_cache_metas[list_pos] : in_cache_metas[list_pos];
@@ -211,7 +223,7 @@ bool LRBCache::lookup(SimpleRequest &req) {
             //mature
             for (auto &sample_time: meta._sample_times) {
                 //don't use label within the first forget window because the data is not static
-                uint32_t future_distance = req._t - sample_time;
+                uint32_t future_distance = current_seq - sample_time;
                 training_data->emplace_back(meta, sample_time, future_distance, meta._key);
                 ++training_data_distribution[1];
             }
@@ -229,7 +241,7 @@ bool LRBCache::lookup(SimpleRequest &req) {
             //mature
             for (auto &sample_time: meta._eviction_sample_times) {
                 //don't use label within the first forget window because the data is not static
-                uint32_t future_distance = req._t - sample_time;
+                uint32_t future_distance = req.seq - sample_time;
                 eviction_training_data->emplace_back(meta, sample_time, future_distance, meta._key);
                 //training
                 if (eviction_training_data->labels.size() == batch_size) {
@@ -244,14 +256,14 @@ bool LRBCache::lookup(SimpleRequest &req) {
         //make this update after update training, otherwise the last timestamp will change
 #ifdef EVICTION_LOGGING
         AnnotatedRequest *_req = (AnnotatedRequest *) &req;
-        meta.update(req._t, _req->_next_seq);
+        meta.update(current_seq, _req->_next_seq);
 #else
-        meta.update(req._t);
+        meta.update(current_seq);//在这里对meta特征进行更新
 #endif
-        if (list_idx) {
+        if (list_idx) {//如果请求meta在out cache
             negative_candidate_queue->erase(forget_timestamp);
-            negative_candidate_queue->insert({req._t % memory_window, req._id});
-            assert(negative_candidate_queue->find(req._t % memory_window) !=
+            negative_candidate_queue->insert({current_seq % memory_window, req._id});
+            assert(negative_candidate_queue->find(current_seq % memory_window) !=
                    negative_candidate_queue->end());
         } else {
             auto *p = dynamic_cast<InCacheMeta *>(&meta);
@@ -267,7 +279,38 @@ bool LRBCache::lookup(SimpleRequest &req) {
     if (is_sampling) {
         sample();
     }
-
+    if(ret==true){
+            std::ofstream out( "four_lru.txt", std::ios::app );
+            out << req._t << " " << req._id << " " << req._size<<"           hit   " << "\n";
+            out.close();
+    }
+    //如果命中了    
+    //我们希望To_predict能保留最新的X个object，
+    //所以每次有新的request到达时
+    //如果它在out_cache中，admit部分会进行处理(如果没有压入，如果有更新信息且交换位置)
+    //如果在in_cache里 admit部分不会进行处理，但需要在vector中判断有无以进行，如果有，则将该元素与队尾元素内容交换
+    /*if(ret==true){
+        bool that=false;
+        int i =0;
+        for(; i<To_predict.size();i++){
+            if(To_predict[i].id == req._id) {
+                that = true;//如果遍历可以找到
+                break;
+            }
+        }//循环结束的时候如果that为true，fine会指向vector内需要修改的元素
+        if(that == true) {
+            //与队尾元素交换
+            uint64_t tmp_id=To_predict[To_predict.size()-1].id;
+            unsigned int tmp_idx=To_predict[To_predict.size()-1].value.list_idx;
+            unsigned int tmp_pos=To_predict[To_predict.size()-1].value.list_pos;
+            To_predict[To_predict.size()-1].id=To_predict[i].id;
+            To_predict[To_predict.size()-1].value.list_idx=To_predict[i].value.list_idx;
+            To_predict[To_predict.size()-1].value.list_pos=To_predict[i].value.list_pos;
+            To_predict[i].id=tmp_id;
+            To_predict[i].value.list_idx=tmp_idx;
+            To_predict[i].value.list_pos= tmp_pos;
+        }
+    }*/
     return ret;
 }
 
@@ -278,7 +321,7 @@ void LRBCache::forget() {
      * object is request at time 0 with memory window = 5, and will be forgotten exactly at the start of time 5.
      * */
     //remove item from forget table, which is not going to be affect from update
-    auto it = negative_candidate_queue->find(current_t % memory_window);
+    auto it = negative_candidate_queue->find(current_seq % memory_window);
     if (it != negative_candidate_queue->end()) {
         auto forget_key = it->second;
         auto pos = key_map.find(forget_key)->second.list_pos;
@@ -286,7 +329,7 @@ void LRBCache::forget() {
         assert(key_map.find(forget_key)->second.list_idx);
 //        auto pos = meta_it->second.list_pos;
 //        bool meta_id = meta_it->second.list_idx;
-        auto &meta = out_cache_metas[pos];
+        auto &meta = out_cache_metas[pos];//forget只会删除outcache的内容
 
         //timeout mature
         if (!meta._sample_times.empty()) {
@@ -330,29 +373,33 @@ void LRBCache::forget() {
         remove_from_outcache_metas(meta, pos, forget_key);
     }
 }
-
+//如果 lookup的结果是hit显然不需要修改map
 void LRBCache::admit(SimpleRequest &req) {
+    //admit meta有可能从outcache进入到incache中
     const uint64_t &size = req._size;
     // object feasible to store?
     if (size > _cacheSize) {
-        LOG("L", _cacheSize, req.get_id(), size);
+        LOG("L", _cacheSize, req._id, size);
         return;
     }
-
+    /*Mymap dict;
+    dict.id = req._id;//可能需要押入的dict
+    dict.value.list_idx = 0;//准入index一定为0*/
     auto it = key_map.find(req._id);
-    if (it == key_map.end()) {
+    if (it == key_map.end()) {//如果从来没有出现过
         //fresh insert
         key_map.insert({req._id, {0, (uint32_t) in_cache_metas.size()}});
+        //dict.value.list_pos = (uint32_t) in_cache_metas.size();
         auto lru_it = in_cache_lru_queue.request(req._id);
 #ifdef EVICTION_LOGGING
         AnnotatedRequest *_req = (AnnotatedRequest *) &req;
-        in_cache_metas.emplace_back(req._id, req._size, req._t, req._extra_features, _req->_next_seq, lru_it);
+        in_cache_metas.emplace_back(req.id, req.size, current_seq, req.extra_features, _req->_next_seq, lru_it);
 #else
-        in_cache_metas.emplace_back(req._id, req._size, req._t, req._extra_features, lru_it);
+        in_cache_metas.emplace_back(req._id, req._size, current_seq, req._extra_features, lru_it);//压入上一次出现时间
 #endif
         _currentSize += size;
         //this must be a fresh insert
-//        negative_candidate_queue.insert({(req._t + memory_window)%memory_window, req._id});
+//        negative_candidate_queue.insert({(current_seq + memory_window)%memory_window, req.id});
         if (_currentSize <= _cacheSize)
             return;
     } else {
@@ -364,6 +411,7 @@ void LRBCache::admit(SimpleRequest &req) {
         negative_candidate_queue->erase(forget_timestamp);
         auto it_lru = in_cache_lru_queue.request(req._id);
         in_cache_metas.emplace_back(out_cache_metas[it->second.list_pos], it_lru);
+        //out的pop处理
         uint32_t tail1_pos = out_cache_metas.size() - 1;
         if (it->second.list_pos != tail1_pos) {
             //swap tail
@@ -371,16 +419,58 @@ void LRBCache::admit(SimpleRequest &req) {
             key_map.find(out_cache_metas[tail1_pos]._key)->second.list_pos = it->second.list_pos;
         }
         out_cache_metas.pop_back();
+        //out的pop处理
+        //dict.value.list_pos = (uint32_t) in_cache_metas.size();
         it->second = {0, tail0_pos};
         _currentSize += size;
     }
-    if (_currentSize > _cacheSize) {
+    if (_currentSize > _cacheSize) {//从第一次需要删除开始每次进行采样
         //start sampling once cache is filled up
         is_sampling = true;
     }
     // check more eviction needed?
+    /*if (_currentSize <=_cacheSize) {
+            std::ofstream out( "four_lru.txt", std::ios::app );
+            out << req._t << " " << req._id << " " << req._size<<" !hit and no need to evict " << "\n";
+            out.close();
+    }*//*
+        bool that=false;
+        int i =0;
+        for(; i<To_predict.size();i++){
+            if(To_predict[i].id == req._id) {
+                that = true;//如果遍历可以找到
+                break;
+            }
+        }//循环结束的时候如果that为true，fine会指向vector内需要修改的元素
+        if(that == false) {
+            //它在To_predict中不存在，押入它的信息
+            if(To_predict.size()<400){
+                To_predict.emplace_back(dict);
+            }else{
+                To_predict.pop_back();
+                To_predict.emplace_back(dict);
+            }
+        }else{
+            //out->in
+            To_predict[i].value.list_idx=0;
+            To_predict[i].value.list_pos= dict.value.list_pos;
+            //与队尾元素交换
+            uint64_t tmp_id=To_predict[To_predict.size()-1].id;
+            unsigned int tmp_idx=To_predict[To_predict.size()-1].value.list_idx;
+            unsigned int tmp_pos=To_predict[To_predict.size()-1].value.list_pos;
+            To_predict[To_predict.size()-1].id=To_predict[i].id;
+            To_predict[To_predict.size()-1].value.list_idx=To_predict[i].value.list_idx;
+            To_predict[To_predict.size()-1].value.list_pos=To_predict[i].value.list_pos;
+            To_predict[i].id=tmp_id;
+            To_predict[i].value.list_idx=tmp_idx;
+            To_predict[i].value.list_pos= tmp_pos;
+        }*/
+
     while (_currentSize > _cacheSize) {
-        evict();
+        /*std::ofstream out( "four_lru.txt", std::ios::app );
+        out << req._t << " " << req._id << " " << req._size<<" evict：   " << "\n";
+        out.close();*/
+        evict();//删除的内容如果To_predict中存在则需要更新，如果不存在不做修改
     }
 }
 
@@ -388,12 +478,40 @@ void LRBCache::admit(SimpleRequest &req) {
 pair<uint64_t, uint32_t> LRBCache::rank() {
     {
         //if not trained yet, or in_cache_lru past memory window, use LRU
-        uint64_t &candidate_key = in_cache_lru_queue.dq.back();
+        auto &candidate_key = in_cache_lru_queue.dq.back();//值引用
+        //cout<<candidate_key<<endl;
+        /*int32_t max_value=0;
+        unordered_set<uint64_t> key_set;
+        for(int i=0;i<1;){
+            auto rand_idx = _distribution(_generator)%in_cache_lru_queue.dq.size();
+            if(key_set.find(rand_idx) == key_set.end()) {
+                i++;
+                key_set.insert(rand_idx);
+                if(rand_idx>max_value) max_value=rand_idx;
+            }
+        }//在这段
+
+        
+       list<int64_t>::const_iterator candidate_key;//拿到一个list<int> 类型的迭代器        //遍历list在min value处停止
+        auto itor = in_cache_lru_queue.dq.begin();
+        int i =0;
+        while (itor != in_cache_lru_queue.dq.end()){
+            if(i==max_value){
+                candidate_key=itor;
+                break;
+            }else{
+                *itor++;
+                i++;
+            }
+        }
+        */
         auto it = key_map.find(candidate_key);
-        auto pos = it->second.list_pos;
+        
+       auto pos = it->second.list_pos;
         auto &meta = in_cache_metas[pos];
-        if ((!booster) || (memory_window <= current_t - meta._past_timestamp)) {
+        if ((!booster) || (memory_window <= current_seq - meta._past_timestamp)) {//如果lru队列中存储的待删除对象过于老旧或或者没有模型则采用lru进行删除
             //this use LRU force eviction, consider sampled a beyond boundary object
+            //如果该object超出boundary，删除该object
             if (booster) {
                 ++obj_distribution[1];
             }
@@ -401,7 +519,7 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
         }
     }
 
-
+    //否则采用LRB进行删除，需要元素在这里初始化
     int32_t indptr[sample_rate + 1];
     indptr[0] = 0;
     int32_t indices[sample_rate * n_feature];
@@ -417,24 +535,30 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
     unsigned int idx_feature = 0;
     unsigned int idx_row = 0;
 
-    auto n_new_sample = sample_rate - idx_row;
-    while (idx_row != sample_rate) {
-        uint32_t pos = _distribution(_generator) % in_cache_metas.size();
+    auto n_new_sample = sample_rate - idx_row;//需要新采样对象个数
+    while (idx_row != sample_rate) {//这个while一直持续到对meta的操作结束
+        uint32_t pos = _distribution(_generator) % in_cache_metas.size();//这里是有可能采到刚刚压入对象
+
+        /*if(idx_row == 0){
+            pos = in_cache_metas.size() -1;
+        }//默认无准入*/
         auto &meta = in_cache_metas[pos];
-        if (key_set.find(meta._key) != key_set.end()) {
+        if (key_set.find(meta._key) != key_set.end()) {//如果该元素已经压入，重新采样
             continue;
         } else {
             key_set.insert(meta._key);
-        }
+        }//采样部分 在采样开始之前把刚刚放进incache的meta放入
+
+
 #ifdef EVICTION_LOGGING
-        meta.emplace_eviction_sample(current_t);
+        meta.emplace_eviction_sample(current_seq);
 #endif
 
         keys[idx_row] = meta._key;
         poses[idx_row] = pos;
         //fill in past_interval
-        indices[idx_feature] = 0;
-        data[idx_feature++] = current_t - meta._past_timestamp;
+        indices[idx_feature] = 0;//开始为0
+        data[idx_feature++] = current_seq - meta._past_timestamp;//这个地方需要调整
         past_timestamps[idx_row] = meta._past_timestamp;
 
         uint8_t j = 0;
@@ -445,7 +569,7 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
                 uint8_t past_distance_idx = (meta._extra->_past_distance_idx - 1 - j) % max_n_past_distances;
                 uint32_t &past_distance = meta._extra->_past_distances[past_distance_idx];
                 this_past_distance += past_distance;
-                indices[idx_feature] = j + 1;
+                indices[idx_feature] = j+ 1;
                 data[idx_feature++] = past_distance;
                 if (this_past_distance < memory_window) {
                     ++n_within;
@@ -455,7 +579,7 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
             }
         }
 
-        indices[idx_feature] = max_n_past_timestamps;
+        indices[idx_feature] = max_n_past_timestamps-1;
         data[idx_feature++] = meta._size;
         sizes[idx_row] = meta._size;
 
@@ -469,7 +593,7 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
 
         for (uint8_t k = 0; k < n_edc_feature; ++k) {
             indices[idx_feature] = max_n_past_timestamps + n_extra_fields + 2 + k;
-            uint32_t _distance_idx = min(uint32_t(current_t - meta._past_timestamp) / edc_windows[k],
+            uint32_t _distance_idx = min(uint32_t(current_seq - meta._past_timestamp) / edc_windows[k],
                                          max_hash_edc_idx);
             if (meta._extra)
                 data[idx_feature++] = meta._extra->_edc[k] * hash_edc[_distance_idx];
@@ -484,7 +608,7 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
     double scores[sample_rate];
     system_clock::time_point timeBegin;
     //sample to measure inference time
-    if (!(current_t % 10000))
+    if (!(current_seq % 10000))
         timeBegin = chrono::system_clock::now();
     LGBM_BoosterPredictForCSR(booster,
                               static_cast<void *>(indptr),
@@ -500,12 +624,12 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
                               inference_params,
                               &len,
                               scores);
-    if (!(current_t % 10000))
+    if (!(current_seq % 10000))
         inference_time = 0.95 * inference_time +
                          0.05 *
                          chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now() - timeBegin).count();
 //    for (int i = 0; i < n_sample; ++i)
-//        result[i] -= (t - past_timestamps[i]);
+//        result[i] -= (t - past_timestamps[i]);//预测的就是下一次到达时间
     for (int i = sample_rate - n_new_sample; i < sample_rate; ++i) {
         //only monitor at the end of change interval
         if (scores[i] >= log1p(memory_window)) {
@@ -531,10 +655,13 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
          }
     );
 
+    //不妨在这里生成一个0-X的随机数
+    //uint32_t pos_return = ( _distribution(_generator)) %2;
+
 #ifdef EVICTION_LOGGING
     {
         if (start_train_logging) {
-//            training_and_prediction_logic_timestamps.emplace_back(current_t / 65536);
+//            training_and_prediction_logic_timestamps.emplace_back(current_seq / 65536);
             for (int i = 0; i < sample_rate; ++i) {
                 int current_idx = indptr[i];
                 for (int p = 0; p < n_feature; ++p) {
@@ -545,43 +672,48 @@ pair<uint64_t, uint32_t> LRBCache::rank() {
                     } else
                         trainings_and_predictions.emplace_back(NAN);
                 }
-                uint32_t future_interval = future_timestamps.find(keys[i])->second - current_t;
+                uint32_t future_interval = future_timestamps.find(keys[i])->second - current_seq;
                 future_interval = min(2 * memory_window, future_interval);
                 trainings_and_predictions.emplace_back(future_interval);
-                trainings_and_predictions.emplace_back(scores[i]);
-                trainings_and_predictions.emplace_back(current_t);
+                trainings_and_predictions.emplace_back(result[i]);
+                trainings_and_predictions.emplace_back(current_seq);
                 trainings_and_predictions.emplace_back(1);
                 trainings_and_predictions.emplace_back(keys[i]);
             }
         }
     }
 #endif
-
+    /*for(uint32_t i =0;i<sample_rate;i++)
+     std::cerr<<scores[i]<<endl;*/
     return {keys[index[0]], poses[index[0]]};
 }
 
 void LRBCache::evict() {
-    auto epair = rank();
+    auto epair = rank();//将rank返回的结果删除
     uint64_t &key = epair.first;
-    uint32_t &old_pos = epair.second;
+    uint32_t &old_pos = epair.second;//这里返回了需要删除的内容
 
 #ifdef EVICTION_LOGGING
     {
         auto it = future_timestamps.find(key);
         unsigned int decision_qulity =
-                static_cast<double>(it->second - current_t) / (_cacheSize * 1e6 / byte_million_req);
+                static_cast<double>(it->second - current_seq) / (_cacheSize * 1e6 / byte_million_req);
         decision_qulity = min((unsigned int) 255, decision_qulity);
         eviction_qualities.emplace_back(decision_qulity);
-        eviction_logic_timestamps.emplace_back(current_t / 65536);
+        eviction_logic_timestamps.emplace_back(current_seq / 65536);
     }
 #endif
 
-    auto &meta = in_cache_metas[old_pos];
-    if (memory_window <= current_t - meta._past_timestamp) {
+    auto &meta = in_cache_metas[old_pos];//要删除的
+
+    /*std::ofstream out( "four_lru.txt", std::ios::app);
+    out << meta._past_timestamp<< " " << meta._key << " " << meta._size<<"    NULL     " << "\n";
+    out.close();*/
+    if (memory_window <= current_seq - meta._past_timestamp) {//看需不需要扔到out_cache里
         //must be the tail of lru
         if (!meta._sample_times.empty()) {
             //mature
-            uint32_t future_distance = current_t - meta._past_timestamp + memory_window;
+            uint32_t future_distance = current_seq - meta._past_timestamp + memory_window;
             for (auto &sample_time: meta._sample_times) {
                 //don't use label within the first forget window because the data is not static
                 training_data->emplace_back(meta, sample_time, future_distance, meta._key);
@@ -600,7 +732,7 @@ void LRBCache::evict() {
         //must be the tail of lru
         if (!meta._eviction_sample_times.empty()) {
             //mature
-            uint32_t future_distance = current_t - meta._past_timestamp + memory_window;
+            uint32_t future_distance = current_seq - meta._past_timestamp + memory_window;
             for (auto &sample_time: meta._eviction_sample_times) {
                 //don't use label within the first forget window because the data is not static
                 eviction_training_data->emplace_back(meta, sample_time, future_distance, meta._key);
@@ -620,19 +752,19 @@ void LRBCache::evict() {
 //        in_cache_lru_queue.dq.pop_back();
         meta.free();
         _currentSize -= meta._size;
-        key_map.erase(key);
-
+        key_map.erase(key);//超过memory_window删除
         uint32_t activate_tail_idx = in_cache_metas.size() - 1;
         if (old_pos != activate_tail_idx) {
             //move tail
             in_cache_metas[old_pos] = in_cache_metas[activate_tail_idx];
             key_map.find(in_cache_metas[activate_tail_idx]._key)->second.list_pos = old_pos;
-        }
+        }//覆盖并修改key_map中的pos
         in_cache_metas.pop_back();
         ++n_force_eviction;
     } else {
-        //bring list 0 to list 1
-        in_cache_lru_queue.dq.erase(meta.p_last_request);
+        //bring list 0 to list 1 否则扔到out_cache里
+        in_cache_lru_queue.dq.erase(meta.p_last_request);//维护lru队列
+
         meta.p_last_request = in_cache_lru_queue.dq.end();
         _currentSize -= meta._size;
         negative_candidate_queue->insert({meta._past_timestamp % memory_window, meta._key});
@@ -643,15 +775,43 @@ void LRBCache::evict() {
         if (old_pos != activate_tail_idx) {
             //move tail
             in_cache_metas[old_pos] = in_cache_metas[activate_tail_idx];
-            key_map.find(in_cache_metas[activate_tail_idx]._key)->second.list_pos = old_pos;
-        }
+            key_map.find(in_cache_metas[activate_tail_idx]._key)->second.list_pos = old_pos;//key_map修改
+        }//in_cache_meta的删除是将删除的object和vector尾部object交换然后删除，不会影响到尾部object以外内容的pos
         in_cache_metas.pop_back();
-        key_map.find(key)->second = {1, new_pos};
+        key_map.find(key)->second = {1, new_pos};//key_map修改
+        
+        /*
+        bool that=false;
+        int q=0;
+        //如果删除的时候找不到就不关To_predict的事情
+        for(; q<To_predict.size();q++){
+            if(To_predict[q].id == meta._key) {
+                that = true;//如果遍历可以找到
+                break;
+            }
+        }
+        //找删除的
+        if(that == true) {
+            To_predict[q].value.list_idx=1;
+            To_predict[q].value.list_pos= new_pos;//将需要删除的object信息修改
+        }
+        //找移位的
+        q = 0;
+        for(; q<To_predict.size();q++){
+            if(To_predict[q].id == in_cache_metas[old_pos]._key) {
+                that = true;//如果遍历可以找到
+                break;
+            }
+        }//循环结束的时候如果that为true，fine会指向vector内需要修改的元素
+        if(that==true){
+               To_predict[q].value.list_pos= old_pos;
+        }*/
     }
 }
 
 void LRBCache::remove_from_outcache_metas(Meta &meta, unsigned int &pos, const uint64_t &key) {
     //free the actual content
+    //meta从out中被移除时候也需要调整To_predict的pos
     meta.free();
     //TODO: can add a function to delete from a queue with (key, pos)
     //evict
@@ -663,6 +823,221 @@ void LRBCache::remove_from_outcache_metas(Meta &meta, unsigned int &pos, const u
     }
     out_cache_metas.pop_back();
     key_map.erase(key);
-    negative_candidate_queue->erase(current_t % memory_window);
+    negative_candidate_queue->erase(current_seq % memory_window);
 }
 
+void LRBCache::predict_all(){
+    //定义一个predict_all函数，记录key_map中所有meta的上一次到达时间和预测的下一次到达时间
+    //我们还需要这些object实际的下一次到达时间进行比较，因此我们读取需要修改simulation.cpp，使其读取经过belady处理后的trace然后打印输出
+    /*for(int q=0;q<key_map.size();q++){
+        std::cerr<<"*********************************************************************"<<endl;
+        std::cerr<<key_map[q].id<<"  **  "<<key_map[q].value.list_idx<<"  **  "<<To_predict[q].value.list_pos<<"  **  "<<endl;
+    }*/
+    int32_t indptr[in_cache_metas.size() + 1];
+    indptr[0] = 0;
+    int32_t indices[in_cache_metas.size() * n_feature];
+    double data[in_cache_metas.size() * n_feature];
+    int32_t past_timestamps[in_cache_metas.size()];
+    uint32_t sizes[in_cache_metas.size()];
+
+    unordered_set<uint64_t> key_set;
+    uint64_t keys[in_cache_metas.size()];
+    uint32_t poses[in_cache_metas.size()];
+    uint32_t p_idx[in_cache_metas.size()];
+    //next_past_timestamp, next_size = next_indptr - 1
+
+    unsigned int idx_feature = 0;
+    unsigned int idx_row = 0;
+
+    uint32_t pos =0;//key_map时置1
+
+    while (idx_row < in_cache_metas.size()) {//key_map.size()这个while一直持续到对meta的操作结束        
+        uint32_t list_idx;
+        uint32_t list_pos;
+        //先在vector中查找有没有key值为pos的object
+        auto it = key_map.find(in_cache_metas[pos]._key);
+        if(it!=key_map.end()){
+            list_idx = it->second.list_idx;
+            list_pos = it->second.list_pos;
+        }else{
+            pos++;
+            continue;
+        }
+        
+        Meta &meta = list_idx ? out_cache_metas[list_pos] : in_cache_metas[list_pos];
+        keys[idx_row] = meta._key;
+        poses[idx_row] = list_pos;//记录key值和pos值
+        p_idx[idx_row] = list_idx;
+        //fill in past_interval
+        indices[idx_feature] = 0;
+        data[idx_feature++] = current_seq - meta._past_timestamp;//这个地方需要调整
+        past_timestamps[idx_row] = meta._past_timestamp;
+
+        uint8_t j = 0;
+        uint32_t this_past_distance = 0;
+        uint8_t n_within = 0;
+        if (meta._extra) {
+            for (j = 0; j < meta._extra->_past_distance_idx && j < max_n_past_distances; ++j) {
+                uint8_t past_distance_idx = (meta._extra->_past_distance_idx - 1 - j) % max_n_past_distances;
+                uint32_t &past_distance = meta._extra->_past_distances[past_distance_idx];
+                this_past_distance += past_distance;
+                indices[idx_feature] = j+1 ;
+                data[idx_feature++] = past_distance;
+                if (this_past_distance < memory_window) {
+                    ++n_within;
+                }
+            }
+        }
+
+        indices[idx_feature] = max_n_past_timestamps;
+        data[idx_feature++] = meta._size;
+        sizes[idx_row] = meta._size;
+
+        for (uint k = 0; k < n_extra_fields; ++k) {
+            indices[idx_feature] = max_n_past_timestamps + k+1 ;
+            data[idx_feature++] = meta._extra_features[k];
+        }
+
+        indices[idx_feature] = max_n_past_timestamps + n_extra_fields+1 ;
+        data[idx_feature++] = n_within;
+
+        for (uint8_t k = 0; k < n_edc_feature; ++k) {
+            indices[idx_feature] = max_n_past_timestamps + n_extra_fields + 2 + k;
+            uint32_t _distance_idx = min(uint32_t(current_seq - meta._past_timestamp) / edc_windows[k],
+                                         max_hash_edc_idx);
+            if (meta._extra)
+                data[idx_feature++] = meta._extra->_edc[k] * hash_edc[_distance_idx];
+            else
+                data[idx_feature++] = hash_edc[_distance_idx];
+        }
+        //remove future t
+        indptr[++idx_row] = idx_feature;
+        pos++;
+    }
+
+    int64_t len;
+    double scores[key_map.size() ];
+    system_clock::time_point timeBegin;
+    //sample to measure inference time
+    if (!(current_seq % 10000))
+        timeBegin = chrono::system_clock::now();
+    LGBM_BoosterPredictForCSR(booster,
+                              static_cast<void *>(indptr),
+                              C_API_DTYPE_INT32,
+                              indices,
+                              static_cast<void *>(data),
+                              C_API_DTYPE_FLOAT64,
+                              idx_row + 1,
+                              idx_feature,
+                              n_feature,  //remove future t
+                              C_API_PREDICT_NORMAL,
+                              0,
+                              inference_params,
+                              &len,
+                              scores);
+    if (!(current_seq % 10000))
+        inference_time = 0.95 * inference_time +
+                         0.05 *
+                         chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now() - timeBegin).count();
+    //这里新建一个txt文件，命名为accuracy.txt，输出是key_map中所有object的信息
+    
+    idx_row = 0;
+    std::ofstream out( "accuracy.txt");//, std::ios::app);
+    while (idx_row < in_cache_metas.size()) {
+        Meta &meta = p_idx[idx_row] ? out_cache_metas[poses[idx_row]] : in_cache_metas[poses[idx_row]];
+        out << meta._key<< " " << meta._past_timestamp << " " <<scores[idx_row]<< "\n";
+        idx_row++;
+    }
+    out.close();
+}
+
+void LRBCache::real_all(){
+    //读取离线belady.ant数据
+    ifstream infile("out.txt.ant");
+    uint64_t id;
+    int64_t i = 0; 
+    //not actually need t and size
+    std::ofstream out( "real.txt");//, std::ios::app);
+    uint64_t next_t, t, size;
+    uint64_t sequence=0;
+    map<uint64_t, uint32_t> future_seen;//对所有object建立一个到下一次出现时间的映射
+    map<uint64_t, uint32_t> now_seen;
+    while(infile>>next_t >>t >> id >> size) {
+        future_seen[id]=next_t;
+        now_seen[id]=sequence;
+        sequence++;
+        if(sequence>current_seq) break;
+    } 
+
+    while(i<in_cache_metas.size()){
+        //先看这个id在To_predict中有没有
+        if(future_seen.find(in_cache_metas[i]._key)!=future_seen.end()){
+            out << in_cache_metas[i]._key<< " " << now_seen[in_cache_metas[i]._key] << " " <<future_seen[in_cache_metas[i]._key]-current_seq << "\n";
+            i++;
+            //std::cerr<<i<<endl;
+        }else{
+            //std::cerr<<ac.size()<<" "<<ac[i]<<" "<<i<<endl;
+        }
+    }
+    infile.close();
+    out.close();
+    estimate();
+}
+
+void LRBCache::estimate(){
+    vector<int> index_real(ac.size(), 0);
+    vector<int> index_predict(ac.size(), 0);
+    for (int i = 0; i < ac.size(); ++i) {
+        index_real[i] = i;
+        index_predict[i] = i;
+    }
+    vector<int>distance_real;
+    vector<int>distance_predict;
+    ifstream infile_real("real.txt");
+    uint64_t now, id, future;
+    while(infile_real>>id >>now >> future) {
+        distance_real.emplace_back(future);
+    } 
+
+    ifstream infile_predict("accuracy.txt");
+    while(infile_predict>>id >>now >> future) {
+        distance_predict.emplace_back(future);
+    } 
+    sort(index_real.begin(), index_real.end(),
+         [&](const int &a, const int &b) {
+             return (distance_real[a] > distance_real[b]);
+         });
+
+    sort(index_predict.begin(), index_predict.end(),
+         [&](const int &a, const int &b) {
+             return (distance_predict[a] > distance_predict[b]);
+         } );   
+    //从下面开始比较predict和real两个序列之间的相似度
+    uint64_t result = comPare(index_real,index_predict);
+    //std::cerr<<"***********************"<<result<<"***************************"<<endl;
+    change.emplace_back(result);
+}
+
+uint64_t LRBCache::comPare(vector<int>index_real,vector<int>index_predict){
+    map<int,int> real;
+    map<int,int> predict;
+    int target = index_predict[0];//预测的要删除object id
+    for(int i =0;i<index_real.size();i++){
+        real[index_real[i]]=i;
+        predict[index_predict[i]]=i;
+    }//得到id->下标映射
+    //遍历计算位均差
+    uint64_t loss=0;
+    /*for(int i =0;i<index_real.size();i++){
+        loss+=abs(real[i]-predict[i]);
+        //std::cerr<<real[i]<<"***********"<<predict[i]<<"**********"<<index_real.size()<<endl;
+    }//得到id->下标映射*/
+    loss+=abs(real[target]);
+    return loss;
+}
+//待完成
+//固定一个大小为100的数据结构存储距离当前时刻最近的object
+//对这部分object进行预测
+
+
+//也可以对缓存内object进行预测，结果能更好的翻译预测性能

@@ -5,7 +5,7 @@ from pymongo import MongoClient
 
 def load_reports(n_warmup, dburi, dbcollection, **kwargs):
     client = MongoClient(dburi)
-    db = client.get_database()
+    db = client.get_database('webcache')
     collection = db[dbcollection]
 
     rows = []

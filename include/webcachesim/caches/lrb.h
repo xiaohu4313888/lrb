@@ -28,20 +28,18 @@ using bsoncxx::builder::basic::kvp;
 using bsoncxx::builder::basic::sub_array;
 
 namespace lrb {
-    typedef uint64_t KeyT;
-
-    uint32_t current_t = -1;
+    uint32_t current_seq = -1;
     uint8_t max_n_past_timestamps = 32;
     uint8_t max_n_past_distances = 31;
     uint8_t base_edc_window = 10;
-    const uint8_t n_edc_feature = 10;
+    const uint8_t n_edc_feature = 9;
     vector<uint32_t> edc_windows;
     vector<double> hash_edc;
     uint32_t max_hash_edc_idx;
-    uint32_t memory_window = 67108864;
+    uint32_t memory_window = 40000;
     uint32_t n_extra_fields = 0;
-    uint32_t batch_size = 131072;
-    const uint max_n_extra_feature = 4;
+    uint32_t batch_size = 128000;//131072;
+    const uint max_n_extra_feature = 0;
     uint32_t n_feature;
     //TODO: interval clock should tick by event instead of following incoming packet time
 #ifdef EVICTION_LOGGING
@@ -186,7 +184,7 @@ public:
 class InCacheMeta : public Meta {
 public:
     //pointer to lru0
-    list<KeyT>::const_iterator p_last_request;
+    list<int64_t>::const_iterator p_last_request;//这个meta在lru队列中的迭代器
     //any change to functions?
 
 #ifdef EVICTION_LOGGING
@@ -204,13 +202,13 @@ public:
     InCacheMeta(const uint64_t &key,
                 const uint64_t &size,
                 const uint64_t &past_timestamp,
-                const vector<uint16_t> &extra_features, const list<KeyT>::const_iterator &it) :
+                const vector<uint16_t> &extra_features, const list<int64_t>::const_iterator &it) :
             Meta(key, size, past_timestamp, extra_features) {
         p_last_request = it;
     };
 #endif
 
-    InCacheMeta(const Meta &meta, const list<KeyT>::const_iterator &it) : Meta(meta) {
+    InCacheMeta(const Meta &meta, const list<int64_t>::const_iterator &it) : Meta(meta) {
         p_last_request = it;
     };
 
@@ -218,21 +216,21 @@ public:
 
 class InCacheLRUQueue {
 public:
-    list<KeyT> dq;
+    list<int64_t> dq;
 
     //size?
     //the hashtable (location information is maintained outside, and assume it is always correct)
-    list<KeyT>::const_iterator request(KeyT key) {
+    list<int64_t>::const_iterator request(int64_t key) {
         dq.emplace_front(key);
         return dq.cbegin();
     }
 
-    list<KeyT>::const_iterator re_request(list<KeyT>::const_iterator it) {
+    list<int64_t>::const_iterator re_request(list<int64_t>::const_iterator it) {
         if (it != dq.cbegin()) {
             dq.emplace_front(*it);
             dq.erase(it);
         }
-        return dq.cbegin();
+        return dq.cbegin();//返回一个指向列表开头的迭代器 返回结果不能修改
     }
 };
 
@@ -266,7 +264,7 @@ public:
                 uint8_t past_distance_idx = (meta._extra->_past_distance_idx - 1 - j) % max_n_past_distances;
                 const uint32_t &past_distance = meta._extra->_past_distances[past_distance_idx];
                 this_past_distance += past_distance;
-                indices.emplace_back(j + 1);
+                indices.emplace_back(j+1 );
                 data.emplace_back(past_distance);
                 if (this_past_distance < memory_window) {
                     ++n_within;
@@ -281,12 +279,12 @@ public:
         ++counter;
 
         for (int k = 0; k < n_extra_fields; ++k) {
-            indices.push_back(max_n_past_timestamps + k + 1);
+            indices.push_back(max_n_past_timestamps + k+1 );
             data.push_back(meta._extra_features[k]);
         }
         counter += n_extra_fields;
 
-        indices.push_back(max_n_past_timestamps + n_extra_fields + 1);
+        indices.push_back(max_n_past_timestamps + n_extra_fields+1 );
         data.push_back(n_within);
         ++counter;
 
@@ -315,12 +313,12 @@ public:
 
 
 #ifdef EVICTION_LOGGING
-        if ((current_t >= n_logging_start) && !start_train_logging && (indptr.size() == 2)) {
+        if ((current_seq >= n_logging_start) && !start_train_logging && (indptr.size() == 2)) {
             start_train_logging = true;
         }
 
         if (start_train_logging) {
-//            training_and_prediction_logic_timestamps.emplace_back(current_t / 65536);
+//            training_and_prediction_logic_timestamps.emplace_back(current_seq / 65536);
             int i = indptr.size() - 2;
             int current_idx = indptr[i];
             for (int p = 0; p < n_feature; ++p) {
@@ -429,7 +427,7 @@ public:
 
 
         if (start_train_logging) {
-//            training_and_prediction_logic_timestamps.emplace_back(current_t / 65536);
+//            training_and_prediction_logic_timestamps.emplace_back(current_seq / 65536);
             int i = indptr.size() - 2;
             int current_idx = indptr[i];
             for (int p = 0; p < n_feature; ++p) {
@@ -463,12 +461,20 @@ struct KeyMapEntryT {
     unsigned int list_idx: 1;
     unsigned int list_pos: 31;
 };
+/*struct Mymap{
+    uint64_t id;
+     KeyMapEntryT value;
+};*/
 
 class LRBCache : public Cache {
 public:
     //key -> (0/1 list, idx)
     sparse_hash_map<uint64_t, KeyMapEntryT> key_map;
-//    vector<Meta> meta_holder[2];
+    //vector<Mymap> To_predict;
+    vector<int> ac;
+    vector<int> change;
+
+    //vector<Meta> meta_holder[2];
     vector<InCacheMeta> in_cache_metas;
     vector<Meta> out_cache_metas;
 
@@ -480,7 +486,7 @@ public:
 #endif
 
     // sample_size: use n_memorize keys + random choose (sample_rate - n_memorize) keys
-    uint sample_rate = 64;
+    uint sample_rate =201;//采样个数
 
     double training_loss = 0;
     int32_t n_force_eviction = 0;
@@ -596,7 +602,7 @@ public:
             }
         }
 
-        negative_candidate_queue = make_shared<sparse_hash_map<uint64_t, uint64_t>>(memory_window);
+        negative_candidate_queue = make_shared<sparse_hash_map<uint64_t, uint64_t>>(memory_window);//用来记录一个window内的id
         max_n_past_distances = max_n_past_timestamps - 1;
         //init
         edc_windows = vector<uint32_t>(n_edc_feature);
@@ -653,6 +659,14 @@ public:
     void sample();
 
     void update_stat_periodic() override;
+
+    void predict_all();
+
+    void real_all();
+    
+    void estimate();
+
+    uint64_t comPare(vector<int>distance_real, vector<int>distance_predict);
 
     static void set_hash_edc() {
         max_hash_edc_idx = (uint64_t) (memory_window / pow(2, base_edc_window)) - 1;
@@ -755,16 +769,13 @@ public:
             auto bucket = db.gridfs_bucket();
 
             auto uploader = bucket.open_upload_stream(task_id + ".evictions");
-            cout << "evict1 num:" << eviction_qualities.size() << endl;
             for (auto &b: eviction_qualities)
                 uploader.write((uint8_t *) (&b), sizeof(uint8_t));
             uploader.close();
             uploader = bucket.open_upload_stream(task_id + ".eviction_timestamps");
-            cout << "evict2 num:" << eviction_logic_timestamps.size() << endl;
             for (auto &b: eviction_logic_timestamps)
                 uploader.write((uint8_t *) (&b), sizeof(uint16_t));
             uploader.close();
-            cout << "evict3 num:" << trainings_and_predictions.size() << endl;
             uploader = bucket.open_upload_stream(task_id + ".trainings_and_predictions");
             for (auto &b: trainings_and_predictions)
                 uploader.write((uint8_t *) (&b), sizeof(float));
@@ -806,3 +817,4 @@ static Factory<LRBCache> factoryLRB("LRB");
 
 }
 #endif //WEBCACHESIM_LRB_H
+

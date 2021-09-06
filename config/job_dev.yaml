@@ -9,7 +9,7 @@ nodes:
   - "1/:"
 
 trace_files:
-  - wiki2018.tr
+  - test4.tr
 
 cache_types:
   - LRB

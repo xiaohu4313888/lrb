@@ -43,7 +43,7 @@ public:
         _size = size;
     }
 
-    inline void reinit(KeyT id, uint64_t size, uint64_t t, vector<uint16_t> *extra_features = nullptr) {
+    inline void reinit( uint64_t t, KeyT id, uint64_t size,vector<uint16_t> *extra_features = nullptr) {
         _id = id;
         _size = size;
         _t = t;
@@ -91,6 +91,7 @@ public:
         _next_seq = next_seq;
         if (extra_features)
             _extra_features = *extra_features;
+        //std::cerr<<_t<<' '<<id<<' '<<_next_seq<<endl;
     }
 };
 

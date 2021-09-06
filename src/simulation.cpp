@@ -14,6 +14,7 @@
 #include <numeric>
 #include "bsoncxx/builder/basic/document.hpp"
 #include "bsoncxx/json.hpp"
+#include "iomanip"
 
 using namespace std;
 using namespace chrono;
@@ -70,7 +71,7 @@ FrameWork::FrameWork(const string &trace_file, const string &cache_type, const u
 
     //trace_file related init
     if (is_offline) {
-        annotate(_trace_file, n_extra_fields);
+        annotate(_trace_file, n_extra_fields);//这里存的是它下一次到达的时间
     }
 
     if (is_offline) {
@@ -85,14 +86,8 @@ FrameWork::FrameWork(const string &trace_file, const string &cache_type, const u
     //set cache_type related
     // create cache
     webcache = move(Cache::create_unique(cache_type));
-    if (webcache == nullptr) {
-        cerr << "cache type not implemented" << endl;
-        abort();
-    }
-
-    // configure cache size
+    if (webcache == nullptr) throw runtime_error("Error: cache type " + cache_type + " not implemented");
     webcache->setSize(cache_size);
-
     webcache->init_with_params(params);
 
     adjust_real_time_offset();
@@ -134,6 +129,8 @@ void FrameWork::update_stats() {
          << endl;
     t_now = _t_now;
     cerr << "segment bmr: " << double(byte_miss) / byte_req << endl;
+    cerr << "segment omr: " << double(obj_miss) / obj_req << endl;
+    miss_ratio.emplace_back(double(obj_miss) / obj_req);
     seg_byte_miss.emplace_back(byte_miss);
     seg_byte_req.emplace_back(byte_req);
     seg_object_miss.emplace_back(obj_miss);
@@ -144,7 +141,7 @@ void FrameWork::update_stats() {
     auto metadata_overhead = get_rss();
     seg_rss.emplace_back(metadata_overhead);
     if (is_metadata_in_cache_size) {
-        webcache->setSize(_cache_size - metadata_overhead);
+        webcache->setSize(_cache_size);
     }
     cerr << "rss: " << metadata_overhead << endl;
     webcache->update_stat_periodic();
@@ -162,7 +159,7 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
 
     SimpleRequest *req;
     if (is_offline)
-        req = new AnnotatedRequest(0, 0, 0, 0);
+        req = new AnnotatedRequest(0, 0, 0, 0, 0);//离线算法可以根据现在request索引得到未来request时间
     else
         req = new SimpleRequest(0, 0, 0);
     t_now = system_clock::now();
@@ -173,7 +170,7 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
             if (!(infile >> next_seq >> t >> id >> size))
                 break;
         } else {
-            if (!(infile >> t >> id >> size))
+            if (!(infile >>t >> id >> size))//next_seq处理正常trace需要删除
                 break;
         }
 
@@ -191,38 +188,41 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
         while (t >= time_window_end) {
             update_real_time_stats();
         }
-        if (seq && !(seq % segment_window)) {
+        /*if (seq && !(seq % segment_window)) {
             update_stats();
+        }*/
+        if (seq && seq > (t_window*t_count)) {
+            update_stats();
+            history_t.emplace_back(seq);//压入的是序列号
+            t_count++;
         }
-
         update_metric_req(byte_req, obj_req, size);
         update_metric_req(rt_byte_req, rt_obj_req, size)
 
         if (is_offline)
             dynamic_cast<AnnotatedRequest *>(req)->reinit(id, size, seq, next_seq, &extra_features);
         else
-            req->reinit(id, size, seq, &extra_features);
+            req->reinit(seq, id, size, &extra_features);
 
         bool is_admitting = true;
-        if (true == bloom_filter) {
+        /*if (true == bloom_filter) {
             bool exist_in_cache = webcache->exist(req->_id);
             //in cache object, not consider bloom_filter
             if (false == exist_in_cache) {
                 is_admitting = filter->exist_or_insert(id);
             }
-        }
+        }*/
         if (is_admitting) {
+            //std::cerr<<"look up is here"<<endl;
             bool is_hit = webcache->lookup(*req);
-            if (!is_hit) {
+            if (!is_hit) {//如果没有命中，准入
                 update_metric_req(byte_miss, obj_miss, size);
                 update_metric_req(rt_byte_miss, rt_obj_miss, size)
-                byte_miss_cache += size;
                 webcache->admit(*req);
             }
         } else {
             update_metric_req(byte_miss, obj_miss, size);
             update_metric_req(rt_byte_miss, rt_obj_miss, size)
-            byte_miss_filter += size;
         }
 
         ++seq;
@@ -232,6 +232,16 @@ bsoncxx::builder::basic::document FrameWork::simulate() {
     update_real_time_stats();
     update_stats();
     infile.close();
+    vector<int>::iterator iter;
+    for (iter = history_t.begin(); iter != history_t.end(); ++iter) {
+        std::cerr<<' '<<*iter/1000<<", ";
+    }
+    std::cerr<<endl;
+    vector<double>::iterator iter2;
+    for (iter2 = miss_ratio.begin(); iter2 != miss_ratio.end(); ++iter2) {
+        std::cerr<<setprecision(3)<<*iter2<<", ";
+    }
+    std::cerr<<endl;
 
     return simulation_results();
 }
@@ -245,8 +255,8 @@ bsoncxx::builder::basic::document FrameWork::simulation_results() {
                              accumulate<vector<int64_t>::const_iterator, double>(seg_byte_req.begin(),
                                                                                  seg_byte_req.end(), 0)
     ));
-    value_builder.append(kvp("byte_miss_cache", byte_miss_cache));
-    value_builder.append(kvp("byte_miss_filter", byte_miss_filter));
+//    value_builder.append(kvp("byte_miss_cache", byte_miss_cache));
+//    value_builder.append(kvp("byte_miss_filter", byte_miss_filter));
     value_builder.append(kvp("segment_byte_miss", [this](sub_array child) {
         for (const auto &element : seg_byte_miss)
             child.append(element);
@@ -296,6 +306,8 @@ bsoncxx::builder::basic::document FrameWork::simulation_results() {
     webcache->update_stat(value_builder);
     return value_builder;
 }
+
+
 
 bsoncxx::builder::basic::document _simulation(string trace_file, string cache_type, uint64_t cache_size,
                                               map<string, string> params) {

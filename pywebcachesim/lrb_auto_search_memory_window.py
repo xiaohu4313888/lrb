@@ -1,5 +1,5 @@
 import sys
-from pywebcachesim import parser, database, runner, get_task
+import parser, database, runner, get_task
 import yaml
 from emukit.examples.gp_bayesian_optimization.single_objective_bayesian_optimization import GPBayesianOptimization
 from emukit.core import ParameterSpace, ContinuousParameter

@@ -25,7 +25,7 @@ void annotate(const string &trace_file, int n_extra_fields) {
     if (cachefile.good()) {
         cerr<<"file has been annotated, so skip annotation"<<endl;
         return;
-    }
+    }//对于已经解析好的文件不会重复解析
 
     // in the first path, hold ids; in the reverse path, hold next_seq
     vector<uint64_t> id_and_next_seq;
@@ -34,7 +34,7 @@ void annotate(const string &trace_file, int n_extra_fields) {
     int64_t i = 0;
     //not actually need t and size
     uint64_t t, size;
-    vector<uint64_t> extra_features(n_extra_fields, 0);
+    vector<uint64_t> extra_features(n_extra_fields, 0);//创建一个名为extra_feature的数组，大小为n_extra_fields，初值为0
 
     ifstream infile(trace_file);
     if (!infile) {
@@ -48,7 +48,7 @@ void annotate(const string &trace_file, int n_extra_fields) {
         if (!(++i%1000000))
             cerr<<"reading origin trace: "<<i<<endl;
         id_and_next_seq.emplace_back(id);
-    }
+    } //遍历把file中所有request的id押入
 
     uint64_t n_req = id_and_next_seq.size();
     std::cerr << "scanned trace n=" << n_req << std::endl;
@@ -64,13 +64,13 @@ void annotate(const string &trace_file, int n_extra_fields) {
         uint64_t current_id = id_and_next_seq[i];
         auto lit = last_seen.find(current_id);
         if (lit != last_seen.end())
-            id_and_next_seq[i] = lit->second;
+            id_and_next_seq[i] = lit->second;//如果未来出现了，记录下未来出现的时间
         else
             id_and_next_seq[i] = max_next_seq;
         last_seen[current_id] = i;
         if (!(i % 1000000))
             cerr<<"computing next t: "<<i<<endl;
-    }
+    }//从后往前遍历所有request
 
     // get current time
     string now;

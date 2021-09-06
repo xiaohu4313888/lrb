@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
     value_builder.append(kvp("simulation_time", to_string(simulation_time)));
     value_builder.append(kvp("simulation_timestamp", simulation_timestamp));
 
-    cout << bsoncxx::to_json(value_builder.view()) << endl;
+  //  cout << bsoncxx::to_json(value_builder.view()) << endl;
 
     try {
         mongocxx::client client = mongocxx::client{mongocxx::uri(params["dburi"])};

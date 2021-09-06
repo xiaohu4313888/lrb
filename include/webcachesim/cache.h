@@ -40,6 +40,8 @@ namespace webcachesim {
         }
 
         virtual void admit(SimpleRequest &req) = 0;
+        
+
 
         // configure cache parameters
         virtual void setSize(const uint64_t &cs) {

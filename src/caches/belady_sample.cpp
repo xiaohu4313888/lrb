@@ -12,7 +12,7 @@ bool BeladySampleCache::lookup(SimpleRequest &_req) {
     auto & req = dynamic_cast<AnnotatedRequest &>(_req);
     current_t = req._t;
     auto it = key_map.find(req._id);
-    if (it != key_map.end()) {
+    if (it != key_map.end()) {//key_map中记录 的是id->pos的映射
         //update past timestamps
         uint32_t &pos_idx = it->second;
         meta_holder[pos_idx].update(req._t, req._next_seq);
@@ -21,28 +21,31 @@ bool BeladySampleCache::lookup(SimpleRequest &_req) {
             req._next_seq - current_t <= threshold)
             memorize_sample_keys.erase(req._id);
 
+        std::cout<<"it is a hit"<<endl;
         return true;
     }
+    std::cerr<<"it  is a miss"<<endl;
     return false;
 }
 
 void BeladySampleCache::admit(SimpleRequest &_req) {
     AnnotatedRequest & req = static_cast<AnnotatedRequest &>(_req);
     const uint64_t & size = req._size;
-    // object feasible to store?
+
+    // object feasible to store?s
     if (size > _cacheSize) {
         LOG("L", _cacheSize, req.get_id(), size);
         return;
     }
 
     auto it = key_map.find(req._id);
-    if (it == key_map.end()) {
         //fresh insert
-        key_map.insert({req._id, (uint32_t) meta_holder.size()});
-        meta_holder.emplace_back(req._id, req._size, req._t, req._next_seq);
-        _currentSize += size;
-    }
+    key_map.insert({req._id, (uint32_t) meta_holder.size()});
+    meta_holder.emplace_back(req._id, req._size, req._t, req._next_seq);
+
+    _currentSize += size;
     // check more eviction needed?
+
     while (_currentSize > _cacheSize) {
         evict();
     }
@@ -63,7 +66,7 @@ pair<uint64_t, uint32_t> BeladySampleCache::rank() {
             auto &meta = meta_holder[pos];
             uint64_t &past_timestamp = meta._past_timestamp;
             if (meta._future_timestamp - current_t <= threshold) {
-                it = memorize_sample_keys.erase(it);
+                it = memorize_sample_keys.erase(it);//更新memorize，memorize记录的是cache里下一次到达时间超出boundary的object
             } else {
                 beyond_boundary_key_pos.emplace_back(pair(key, pos));
                 ++it;
@@ -72,10 +75,12 @@ pair<uint64_t, uint32_t> BeladySampleCache::rank() {
     }
 
     uint n_sample = min(sample_rate, (uint32_t) meta_holder.size());
-
+    //把这n_sample个全部记录下来，最后sort，尾部输出
+    std::vector<pair<BeladySampleMeta,u_int64_t>> to_evict;
+    std::vector<u_int32_t> to_pose; 
     for (uint32_t i = 0; i < n_sample; i++) {
         //true random sample
-        uint32_t pos = (i + _distribution(_generator)) % meta_holder.size();
+        uint32_t pos = (i + _distribution(_generator)) % meta_holder.size();//这里是采样结束
         auto &meta = meta_holder[pos];
 
         if (memorize_sample && memorize_sample_keys.find(meta._key) != memorize_sample_keys.end()) {
@@ -83,7 +88,10 @@ pair<uint64_t, uint32_t> BeladySampleCache::rank() {
             continue;
         }
 
-        uint64_t future_interval;
+        uint64_t future_interval=meta._future_timestamp - current_t;
+        to_evict.emplace_back(make_pair(meta,future_interval));
+        to_pose.emplace_back(pos);
+
         if (meta._future_timestamp - current_t <= threshold) {
             future_interval = meta._future_timestamp - current_t;
         } else {
@@ -101,7 +109,17 @@ pair<uint64_t, uint32_t> BeladySampleCache::rank() {
             max_pos = pos;
         }
     }
+    sort(to_evict.begin(), to_evict.end(),
+         [&](const pair<BeladySampleMeta,u_int64_t> &a, const pair<BeladySampleMeta,u_int64_t> &b) {
+             return (a.second > b.second);
+         });//将meta future_interval组成map按value排序
+    
+    uint32_t pos_return = ( _distribution(_generator)) %64;//这里是采样结束
+    if(pos_return>n_sample-1) pos_return=n_sample-1; 
+    auto a=key_map.find(to_evict[pos_return].first._key);
 
+    return {a->first, a->second};
+  
     if (beyond_boundary_key_pos.empty()) {
         return {max_key, max_pos};
     } else {

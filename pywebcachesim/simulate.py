@@ -1,5 +1,5 @@
 import sys
-from pywebcachesim import parser, get_task, runner
+import parser, get_task, runner
 
 
 def main():
